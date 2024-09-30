@@ -1,11 +1,12 @@
 package cn.edu.hit.utils;
 
-import java.io.BufferedReader;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 import cn.edu.hit.core.HttpConstant;
 import cn.edu.hit.core.HttpRequest;
@@ -14,53 +15,93 @@ import cn.edu.hit.core.HttpStatus;
 
 public class HttpUtils {
 
-    public static HttpRequest parseHttpRequest(BufferedReader clientReader) throws IOException {
+    public static HttpRequest parseHttpRequest(InputStream clientIn) throws IOException {
         HttpRequest.Builder builder = HttpRequest.newBuilder();
-        String requestLine = clientReader.readLine();
-        String[] requestLineParts = requestLine.split(" ");
-        builder.method(requestLineParts[0]).uri(URI.create(requestLineParts[1]));
+        try (BufferedReader clientReader = new BufferedReader(new InputStreamReader(clientIn))) {
+            String requestLine = clientReader.readLine();
+            String[] requestLineParts = requestLine.split(" ");
+            builder.method(requestLineParts[0]).uri(URI.create(requestLineParts[1]));
 
-        String line;
-        while ((line = clientReader.readLine()) != null && !line.isEmpty()) {
-            String[] headerParts = line.split(": ", 2); // 指定最多只拆分两部分
-            if (headerParts.length == 2) { // 检查是否成功拆分，防止解析失败
-                builder.header(headerParts[0], headerParts[1]);
+            String headLine;
+            Map<String, String> headers = new HashMap<>();
+            while ((headLine = clientReader.readLine()) != null && !headLine.isEmpty()) {
+                String[] headerParts = headLine.split(": ", 2);// 指定最多只拆分两部分
+                headers.put(headerParts[0], headerParts[1]);
+                if (headerParts.length == 2) { // 检查是否成功拆分，防止解析失败
+                    headers.put(headerParts[0], headerParts[1]);
+                }
+            }
+            builder.headers(headers);
+
+            // 读取请求体
+            if (headers.containsKey("Content-Length")) {
+                int contentLength = Integer.parseInt(headers.get("Content-Length"));
+                byte[] body = new byte[contentLength];
+                int bytesRead = clientIn.read(body);
+                if (bytesRead == contentLength) {
+                    builder.body(body);
+                }
             }
         }
 
-        StringBuilder body = new StringBuilder();
-        while ((line = clientReader.readLine()) != null) {
-            body.append(line).append("\r\n");
-        }
-
-        builder.body(body.toString());
         return builder.build();
     }
 
-    public static HttpResponse parseHttpResponse(BufferedReader reader) throws IOException {
+    public static HttpResponse parseHttpResponse(InputStream serverIn) throws IOException {
         HttpResponse.Builder builder = HttpResponse.newBuilder();
-        String statusLine = reader.readLine();
-        String[] statusParts = statusLine.split(" ");
-        builder.version(statusParts[0]);
-        int statusCode = Integer.parseInt(statusParts[1]);
-        builder.statusCode(HttpStatus.getStatusFromCode(statusCode));
+        try (BufferedReader serverReader = new BufferedReader(new InputStreamReader(serverIn))) {
+            String statusLine = serverReader.readLine();
+            String[] statusParts = statusLine.split(" ");
+            builder.version(statusParts[0]);
+            int statusCode = Integer.parseInt(statusParts[1]);
+            builder.statusCode(HttpStatus.getStatusFromCode(statusCode));
 
-        String line;
-        while (!(line = reader.readLine()).isEmpty()) {
-            String[] headerParts = line.split(": ", 2);
-            if (headerParts.length == 2) {
-                builder.header(headerParts[0], headerParts[1]);
+            String headLine;
+            Map<String, String> headers = new HashMap<>();
+            while ((headLine = serverReader.readLine()) != null && !headLine.isEmpty()) {
+                String[] headerParts = headLine.split(": ", 2);// 指定最多只拆分两部分
+                headers.put(headerParts[0], headerParts[1]);
+                if (headerParts.length == 2) { // 检查是否成功拆分，防止解析失败
+                    headers.put(headerParts[0], headerParts[1]);
+                }
+            }
+            builder.headers(headers);
+
+            // 读取响应体
+            if (headers.containsKey("Content-Length")) {
+                int contentLength = Integer.parseInt(headers.get("Content-Length"));
+                byte[] body = new byte[contentLength];
+                int bytesRead = serverIn.read(body);
+                if (bytesRead == contentLength) {
+                    builder.body(body);
+                }
             }
         }
-
-        // 读取响应体
-        StringBuilder body = new StringBuilder();
-        while ((line = reader.readLine()) != null) {
-            body.append(line).append("\r\n");
-        }
-        builder.body(body.toString());
-
         return builder.build();
+    }
+
+    public static void forwardHttpRequest(HttpRequest request, OutputStream out) throws IOException {
+        // 转发请求头
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out));
+        writer.write(request.toString());
+        writer.flush();
+
+        // 转发请求体
+        if (request.getBody() != null) {
+            out.write(request.getBody());
+        }
+    }
+
+    public static void forwardHttpResponse(HttpResponse response, OutputStream out) throws IOException {
+        // 转发响应头
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out));
+        writer.write(response.toString());
+        writer.flush();
+
+        // 转发响应体
+        if (response.getBody() != null) {
+            out.write(response.getBody());
+        }
     }
 
     public static Socket connectToServer(String host, int port) throws IOException {

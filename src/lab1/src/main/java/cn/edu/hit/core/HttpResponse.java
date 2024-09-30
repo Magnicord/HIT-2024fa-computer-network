@@ -8,7 +8,7 @@ public class HttpResponse {
     private final String version;
     private final HttpStatus statusCode; // HTTP状态码 (200, 304等)
     private final Map<String, String> headers; // HTTP响应头
-    private final String body; // HTTP响应体
+    private final byte[] body; // HTTP响应体
 
     private HttpResponse(Builder builder) {
         this.version = builder.version;
@@ -19,15 +19,6 @@ public class HttpResponse {
 
     public static Builder newBuilder() {
         return new Builder();
-    }
-
-    public static void main(String[] args) {
-        HttpResponse response =
-            HttpResponse.newBuilder().version(HttpConstant.HTTP_DEFAULT_VERSION).statusCode(HttpStatus.OK)
-                .header("Content-Type", "application/json").header("Last-Modified", "Wed, 21 Oct 2015 07:28:00 GMT")
-                .body("{\"name\": \"Aim\", " + "\"age\": 25}").build();
-
-        System.out.println(response);
     }
 
     public String getVersion() {
@@ -43,7 +34,7 @@ public class HttpResponse {
         return Collections.unmodifiableMap(headers);
     }
 
-    public String getBody() {
+    public byte[] getBody() {
         return body;
     }
 
@@ -58,9 +49,6 @@ public class HttpResponse {
         String statusLine = String.format("%s %d %s\n", version, statusCode.getCode(), statusCode.getDescription());
         sb.append(statusLine);
         headers.forEach((key, value) -> sb.append(key).append(": ").append(value).append("\n"));
-        if (body != null && !body.isEmpty()) {
-            sb.append("\n").append(body);
-        }
         return sb.toString();
     }
 
@@ -69,7 +57,7 @@ public class HttpResponse {
         private final Map<String, String> headers = new HashMap<>();
         private String version = HttpConstant.HTTP_DEFAULT_VERSION; // 默认HTTP版本
         private HttpStatus statusCode;
-        private String body;
+        private byte[] body;
 
         public Builder version(String version) {
             this.version = version;
@@ -91,7 +79,7 @@ public class HttpResponse {
             return this;
         }
 
-        public Builder body(String body) {
+        public Builder body(byte[] body) {
             this.body = body;
             return this;
         }

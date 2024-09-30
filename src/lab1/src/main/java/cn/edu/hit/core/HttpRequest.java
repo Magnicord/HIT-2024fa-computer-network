@@ -10,7 +10,7 @@ public class HttpRequest {
     private final URI uri;
     private final String version;
     private final Map<String, String> headers;
-    private final String body;
+    private final byte[] body;
 
     private HttpRequest(Builder builder) {
         this.method = builder.method;
@@ -22,15 +22,6 @@ public class HttpRequest {
 
     public static Builder newBuilder() {
         return new Builder();
-    }
-
-    // 示例用法
-    public static void main(String[] args) {
-        HttpRequest request = HttpRequest.newBuilder().method(HttpConstant.POST).uri(URI.create("""
-            https://example.com/api/resource""")).version(HttpConstant.HTTP_DEFAULT_VERSION)
-            .header("Content-Type", "application/json").body("{\"key\": \"value\"}").build();
-
-        System.out.println(request);
     }
 
     public String getScheme() {
@@ -57,7 +48,7 @@ public class HttpRequest {
         return Collections.unmodifiableMap(headers);
     }
 
-    public String getBody() {
+    public byte[] getBody() {
         return body;
     }
 
@@ -97,9 +88,6 @@ public class HttpRequest {
         StringBuilder sb = new StringBuilder();
         sb.append(method).append(" ").append(uri.toString()).append(" ").append(version).append("\r\n");
         headers.forEach((key, value) -> sb.append(key).append(": ").append(value).append("\r\n"));
-        if (body != null && !body.isEmpty()) {
-            sb.append("\r\n").append(body);
-        }
         return sb.toString();
     }
 
@@ -108,7 +96,7 @@ public class HttpRequest {
         private String version = HttpConstant.HTTP_DEFAULT_VERSION; // 默认HTTP版本
         private String method;
         private URI uri;
-        private String body;
+        private byte[] body;
 
         public Builder method(String method) {
             this.method = method;
@@ -130,7 +118,7 @@ public class HttpRequest {
             return this;
         }
 
-        public Builder body(String body) {
+        public Builder body(byte[] body) {
             this.body = body;
             return this;
         }
