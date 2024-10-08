@@ -46,9 +46,10 @@ public class HttpResponse {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        String statusLine = String.format("%s %d %s\n", version, statusCode.getCode(), statusCode.getDescription());
+        String statusLine = String.format("%s %d %s\r\n", version, statusCode.getCode(), statusCode.getDescription());
         sb.append(statusLine);
-        headers.forEach((key, value) -> sb.append(key).append(": ").append(value).append("\n"));
+        headers.forEach((key, value) -> sb.append(key).append(": ").append(value).append("\r\n"));
+        sb.append("\r\n");
         return sb.toString();
     }
 

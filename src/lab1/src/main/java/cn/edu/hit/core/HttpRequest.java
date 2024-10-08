@@ -88,6 +88,8 @@ public class HttpRequest {
         StringBuilder sb = new StringBuilder();
         sb.append(method).append(" ").append(uri.toString()).append(" ").append(version).append("\r\n");
         headers.forEach((key, value) -> sb.append(key).append(": ").append(value).append("\r\n"));
+        // 添加空行，表示请求头结束
+        sb.append("\r\n");
         return sb.toString();
     }
 
