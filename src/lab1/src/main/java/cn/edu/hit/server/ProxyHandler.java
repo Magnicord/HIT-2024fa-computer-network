@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 
-import cn.edu.hit.cache.CacheEntry;
 import cn.edu.hit.cache.CacheManager;
 import cn.edu.hit.core.HttpConstant;
 import cn.edu.hit.core.HttpRequest;
@@ -26,12 +25,12 @@ public class ProxyHandler implements Runnable {
     public void run() {
         try {
             handleProxy(clientSocket); // 调用代理处理逻辑
-        } catch (IOException e) {
+        } catch (IOException | ClassNotFoundException e) {
             System.err.println("[ProxyHandler] 处理请求时发生错误: " + e.getMessage());
         }
     }
 
-    private void handleProxy(Socket clientSocket) throws IOException {
+    private void handleProxy(Socket clientSocket) throws IOException, ClassNotFoundException {
         System.out.println("[ProxyHandler] 开始处理客户端请求: " + clientSocket.getRemoteSocketAddress());
         try (InputStream clientIn = clientSocket.getInputStream();
             OutputStream clientOut = clientSocket.getOutputStream()) {
@@ -49,12 +48,13 @@ public class ProxyHandler implements Runnable {
 
             // 获取请求的 URI，用于缓存
             String uri = httpRequest.getUri().toString();
-            CacheEntry cachedEntry = cacheManager.get(uri);
+            HttpResponse cachedHttpResponse = cacheManager.get(uri);
+            System.out.println("[ProxyHandler] 正在处理请求: " + uri);
 
             // 如果缓存命中，则添加 If-Modified-Since 头部
-            if (cachedEntry != null) {
+            if (cachedHttpResponse != null) {
                 System.out.println("[ProxyHandler] 缓存命中，添加 If-Modified-Since 头部");
-                httpRequest = HttpUtils.addIfModifiedSinceHeader(httpRequest, cachedEntry.getLastModified());
+                httpRequest = HttpUtils.addIfModifiedSinceHeader(httpRequest, cachedHttpResponse.getLastModified());
             } else {
                 System.out.println("[ProxyHandler] 缓存未命中，直接转发请求");
             }
@@ -74,14 +74,21 @@ public class ProxyHandler implements Runnable {
                 HttpResponse httpResponse = HttpUtils.parseHttpResponse(serverIn);
                 System.out.println("[ProxyHandler] 已接收到目标服务器响应，状态码: " + httpResponse.getStatusCode());
 
-                if (cachedEntry != null && httpResponse.getStatusCode().equals(HttpStatus.NOT_MODIFIED)) {
+                if (cachedHttpResponse != null && httpResponse.getStatusCode().equals(HttpStatus.NOT_MODIFIED)) {
                     // 如果缓存命中，且目标服务器返回 304 Not Modified，则直接返回缓存的响应
                     System.out.println("[ProxyHandler] 目标服务器返回 304 Not Modified，直接使用缓存响应");
-                    HttpUtils.forwardHttpResponse(cachedEntry.getResponse(), clientOut);
+                    System.out.println("========================================");
+                    System.out.print(cachedHttpResponse);
+                    System.out.println("========================================");
+                    HttpUtils.forwardHttpResponse(cachedHttpResponse, clientOut);
                 } else {
-                    // 如果目标服务器返回新的响应，则更新缓存
-                    System.out.println("[ProxyHandler] 目标服务器返回新响应，更新缓存");
-                    cacheManager.put(uri, new CacheEntry(httpResponse));
+                    // 如果目标服务器返回新的响应或缓存不存在，则将响应转发给客户端
+                    if (httpResponse.getLastModified() != null) {
+                        System.out.println("[ProxyHandler] 目标服务器返回新响应中存在 Last-Modified，更新缓存");
+                        cacheManager.put(uri, httpResponse);
+                    } else {
+                        System.out.println("[ProxyHandler] 目标服务器返回新响应中不存在 Last-Modified，不更新缓存");
+                    }
                     HttpUtils.forwardHttpResponse(httpResponse, clientOut);
                 }
 
@@ -90,8 +97,6 @@ public class ProxyHandler implements Runnable {
             } catch (IOException e) {
                 System.err.println("[ProxyHandler] 与目标服务器通信时发生错误: " + e.getMessage());
                 throw e;
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
             }
         }
     }

@@ -1,10 +1,15 @@
 package cn.edu.hit.core;
 
+import static cn.edu.hit.utils.DateUtils.parseHttpDateTime;
+
+import java.io.Serializable;
+import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-public class HttpResponse {
+public class HttpResponse implements Serializable {
+
     private final String version;
     private final HttpStatus statusCode; // HTTP状态码 (200, 304等)
     private final Map<String, String> headers; // HTTP响应头
@@ -39,8 +44,9 @@ public class HttpResponse {
     }
 
     // 获取Last-Modified时间
-    public String getLastModified() {
-        return headers.getOrDefault("Last-Modified", null);
+    public ZonedDateTime getLastModified() {
+        String timeStr = headers.getOrDefault("Last-Modified", null);
+        return timeStr != null ? parseHttpDateTime(timeStr) : null;
     }
 
     @Override

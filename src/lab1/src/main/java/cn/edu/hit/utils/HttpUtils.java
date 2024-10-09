@@ -8,7 +8,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -54,7 +54,7 @@ public class HttpUtils {
         return builder.build();
     }
 
-    public static HttpResponse parseHttpResponse(InputStream serverIn) throws IOException, InterruptedException {
+    public static HttpResponse parseHttpResponse(InputStream serverIn) throws IOException {
         HttpResponse.Builder builder = HttpResponse.newBuilder();
         // 读取响应头
         String httpHeader = parseHttpHeader(serverIn);
@@ -255,8 +255,7 @@ public class HttpUtils {
         return socket;
     }
 
-    // 添加If-Modified-Since头部
-    public static HttpRequest addIfModifiedSinceHeader(HttpRequest request, LocalDateTime lastModified) {
+    public static HttpRequest addIfModifiedSinceHeader(HttpRequest request, ZonedDateTime lastModified) {
         HttpRequest.Builder modifiedRequest = HttpRequest.newBuilder();
         modifiedRequest.method(request.getMethod()).uri(request.getUri()).headers(request.getHeaders())
             .version(request.getVersion());
