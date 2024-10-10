@@ -17,8 +17,18 @@ import cn.edu.hit.core.HttpRequest;
 import cn.edu.hit.core.HttpResponse;
 import cn.edu.hit.core.HttpStatus;
 
+/**
+ * HTTP 工具类，提供解析 HTTP 请求和响应、转发请求和响应等功能。
+ */
 public class HttpUtils {
 
+    /**
+     * 解析 HTTP 请求。
+     *
+     * @param clientIn 客户端输入流
+     * @return 解析后的 HttpRequest 对象
+     * @throws IOException 如果发生 I/O 错误
+     */
     public static HttpRequest parseHttpRequest(InputStream clientIn) throws IOException {
         HttpRequest.Builder builder = HttpRequest.newBuilder();
         // 读取请求行
@@ -26,11 +36,11 @@ public class HttpUtils {
         String[] lines = httpHeader.split("\r\n");
         String[] requestLineParts = lines[0].split(" ");
         String method = requestLineParts[0]; // 请求方法
-        URI uri = URI.create(requestLineParts[1]); // 请求URI
-        String version = requestLineParts[2]; // HTTP版本
+        URI uri = URI.create(requestLineParts[1]); // 请求 URI
+        String version = requestLineParts[2]; // HTTP 版本
         builder.method(method).uri(uri).version(version);
 
-        // 解析头部字段（从第2行开始）
+        // 解析头部字段（从第 2 行开始）
         Map<String, String> headers = new HashMap<>();
         for (int i = 1; i < lines.length; i++) {
             if (lines[i].isEmpty()) {
@@ -54,6 +64,13 @@ public class HttpUtils {
         return builder.build();
     }
 
+    /**
+     * 解析 HTTP 响应。
+     *
+     * @param serverIn 服务器输入流
+     * @return 解析后的 HttpResponse 对象
+     * @throws IOException 如果发生 I/O 错误
+     */
     public static HttpResponse parseHttpResponse(InputStream serverIn) throws IOException {
         HttpResponse.Builder builder = HttpResponse.newBuilder();
         // 读取响应头
@@ -63,14 +80,14 @@ public class HttpUtils {
 
         // 第一行是状态行，格式如: HTTP/1.1 200 OK
         String[] statusLineParts = lines[0].split(" ");
-        String version = statusLineParts[0]; // HTTP版本
+        String version = statusLineParts[0]; // HTTP 版本
         int statusCode = Integer.parseInt(statusLineParts[1]); // 状态码
         HttpStatus status = HttpStatus.getStatusFromCode(statusCode);
 
         builder.version(version); // 设置版本
         builder.statusCode(status); // 设置状态码
 
-        // 解析头部字段（从第2行开始）
+        // 解析头部字段（从第 2 行开始）
         Map<String, String> headers = new HashMap<>();
         for (int i = 1; i < lines.length; i++) {
             if (lines[i].isEmpty()) {
@@ -99,6 +116,13 @@ public class HttpUtils {
         return builder.build();
     }
 
+    /**
+     * 解析 HTTP 头部。
+     *
+     * @param in 输入流
+     * @return 解析后的头部字符串
+     * @throws IOException 如果发生 I/O 错误
+     */
     public static String parseHttpHeader(InputStream in) throws IOException {
         StringBuilder headerBuilder = new StringBuilder();
         int previous = -1, current;
@@ -115,6 +139,14 @@ public class HttpUtils {
         return headerBuilder.toString(); // 返回完整的头部字符串
     }
 
+    /**
+     * 解析固定长度的 HTTP 响应体。
+     *
+     * @param inputStream 输入流
+     * @param contentLength 内容长度
+     * @return 解析后的响应体字节数组
+     * @throws IOException 如果发生 I/O 错误
+     */
     private static byte[] parseHttpBodyFixed(InputStream inputStream, int contentLength) throws IOException {
         byte[] body = new byte[contentLength];
         int bytesReadTotal = 0; // 已经读取的字节数
@@ -130,13 +162,20 @@ public class HttpUtils {
         return body;
     }
 
+    /**
+     * 解析分块传输的 HTTP 响应体。
+     *
+     * @param inputStream 输入流
+     * @return 解析后的响应体字节数组
+     * @throws IOException 如果发生 I/O 错误
+     */
     private static byte[] parseHttpBodyChunked(InputStream inputStream) throws IOException {
         ByteArrayOutputStream chunkedBody = new ByteArrayOutputStream();
         while (true) {
             // 读取块大小行
             String chunkSizeLine = readLine(inputStream);
             // 解析块大小
-            int chunkSize = Integer.parseInt(chunkSizeLine.trim(), 16); // 块大小为16进制
+            int chunkSize = Integer.parseInt(chunkSizeLine.trim(), 16); // 块大小为 16 进制
             if (chunkSize == 0) {
                 break; // 读取到最后一个块，结束
             }
@@ -155,6 +194,13 @@ public class HttpUtils {
         return chunkedBody.toByteArray();
     }
 
+    /**
+     * 从输入流中读取一行。
+     *
+     * @param in 输入流
+     * @return 读取的行字符串
+     * @throws IOException 如果发生 I/O 错误
+     */
     private static String readLine(InputStream in) throws IOException {
         StringBuilder lineBuilder = new StringBuilder();
         int current;
@@ -176,6 +222,13 @@ public class HttpUtils {
         return lineBuilder.toString();
     }
 
+    /**
+     * 转发 HTTP 请求。
+     *
+     * @param request HTTP 请求对象
+     * @param out 输出流
+     * @throws IOException 如果发生 I/O 错误
+     */
     public static void forwardHttpRequest(HttpRequest request, OutputStream out) throws IOException {
         // 1. 转发请求头
         out.write(request.toString().getBytes(StandardCharsets.UTF_8));
@@ -188,6 +241,13 @@ public class HttpUtils {
         }
     }
 
+    /**
+     * 转发 HTTP 响应。
+     *
+     * @param response HTTP 响应对象
+     * @param out 输出流
+     * @throws IOException 如果发生 I/O 错误
+     */
     public static void forwardHttpResponse(HttpResponse response, OutputStream out) throws IOException {
         // 1. 转发响应头
         out.write(response.toString().getBytes(StandardCharsets.UTF_8));
@@ -205,6 +265,13 @@ public class HttpUtils {
         }
     }
 
+    /**
+     * 以分块传输方式转发响应体。
+     *
+     * @param body 响应体字节数组
+     * @param out 输出流
+     * @throws IOException 如果发生 I/O 错误
+     */
     private static void forwardBodyChunked(byte[] body, OutputStream out) throws IOException {
         // 将响应体以 chunked 传输方式发送
         int contentLength = body.length; // 响应体长度
@@ -214,7 +281,7 @@ public class HttpUtils {
         while (bytesWrittenTotal < contentLength) {
             // 计算当前写入块大小
             int currentChunkSize = Math.min(chunkSize, contentLength - bytesWrittenTotal);
-            // 表示为16进制
+            // 表示为 16 进制
             String chunkSizeHex = Integer.toHexString(currentChunkSize) + "\r\n";
 
             // 1. 写入块大小
@@ -233,6 +300,13 @@ public class HttpUtils {
         out.flush();
     }
 
+    /**
+     * 以固定长度方式转发响应体。
+     *
+     * @param body 响应体字节数组
+     * @param out 输出流
+     * @throws IOException 如果发生 I/O 错误
+     */
     private static void forwardBodyFixed(byte[] body, OutputStream out) throws IOException {
         int contentLength = body.length; // 响应体长度
         int bytesWrittenTotal = 0; // 已经写入的字节数
@@ -245,16 +319,40 @@ public class HttpUtils {
         }
     }
 
+    /**
+     * 连接到服务器。
+     *
+     * @param host 服务器主机名
+     * @param port 服务器端口
+     * @return 连接的 Socket 对象
+     * @throws IOException 如果发生 I/O 错误
+     */
     public static Socket connectToServer(String host, int port) throws IOException {
         return connectToServer(host, port, HttpConstant.DEFAULT_CONNECT_TIMEOUT);
     }
 
+    /**
+     * 连接到服务器。
+     *
+     * @param host 服务器主机名
+     * @param port 服务器端口
+     * @param timeout 连接超时时间
+     * @return 连接的 Socket 对象
+     * @throws IOException 如果发生 I/O 错误
+     */
     public static Socket connectToServer(String host, int port, int timeout) throws IOException {
         Socket socket = new Socket();
         socket.connect(new InetSocketAddress(host, port), timeout);
         return socket;
     }
 
+    /**
+     * 添加 If-Modified-Since 头部到 HTTP 请求。
+     *
+     * @param request HTTP 请求对象
+     * @param lastModified 上次修改时间
+     * @return 更新后的 HTTP 请求对象
+     */
     public static HttpRequest addIfModifiedSinceHeader(HttpRequest request, ZonedDateTime lastModified) {
         return request.updateHeader("If-Modified-Since",
             lastModified != null ? DateUtils.parseHttpDateTime(lastModified) : null);

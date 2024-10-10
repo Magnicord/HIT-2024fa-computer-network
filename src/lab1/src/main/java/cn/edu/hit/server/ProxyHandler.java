@@ -15,18 +15,34 @@ import cn.edu.hit.core.HttpStatus;
 import cn.edu.hit.filter.FilterManager;
 import cn.edu.hit.utils.HttpUtils;
 
+/**
+ * 代理处理器类，用于处理客户端请求并转发到目标服务器。
+ */
 public class ProxyHandler implements Runnable {
 
     private static final CacheManager cacheManager = new CacheManager(); // 全局缓存管理器
     private final FilterManager filterManager; // 全局过滤器管理器
-    private final Socket clientSocket;
+    private final Socket clientSocket; // 客户端套接字
 
+    /**
+     * 构造函数，初始化代理处理器。
+     *
+     * @param clientSocket 客户端套接字
+     */
     public ProxyHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
         this.filterManager = new FilterManager();
         System.out.println("[ProxyHandler] 创建新的代理处理器，客户端地址: " + clientSocket.getRemoteSocketAddress());
     }
 
+    /**
+     * 构造函数，初始化代理处理器。
+     *
+     * @param clientSocket 客户端套接字
+     * @param blockedSites 被禁止访问的网站集合
+     * @param blockedUsers 被禁止访问的用户集合
+     * @param redirectSites 网站重定向映射
+     */
     public ProxyHandler(Socket clientSocket, Set<String> blockedSites, Set<String> blockedUsers,
         Map<String, String> redirectSites) {
         this.clientSocket = clientSocket;
@@ -34,6 +50,9 @@ public class ProxyHandler implements Runnable {
         System.out.println("[ProxyHandler] 创建新的代理处理器，客户端地址: " + clientSocket.getRemoteSocketAddress());
     }
 
+    /**
+     * 运行方法，处理客户端请求。
+     */
     @Override
     public void run() {
         try {
@@ -43,6 +62,13 @@ public class ProxyHandler implements Runnable {
         }
     }
 
+    /**
+     * 处理代理逻辑。
+     *
+     * @param clientSocket 客户端套接字
+     * @throws IOException 如果发生 I/O 错误
+     * @throws ClassNotFoundException 如果类未找到
+     */
     private void handleProxy(Socket clientSocket) throws IOException, ClassNotFoundException {
         String user = clientSocket.getInetAddress().getHostAddress();
         System.out.printf("[ProxyHandler] 正在处理用户 [%s] 的请求\n", user);
