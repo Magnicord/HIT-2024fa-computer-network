@@ -26,6 +26,12 @@ public class HttpResponse implements Serializable {
         return new Builder();
     }
 
+    public HttpResponse updateHeader(String headerName, String headerValue) {
+        Builder builder = new Builder(this);
+        builder.header(headerName, headerValue);
+        return builder.build();
+    }
+
     public String getVersion() {
         return version;
     }
@@ -65,6 +71,15 @@ public class HttpResponse implements Serializable {
         private String version = HttpConstant.HTTP_DEFAULT_VERSION; // 默认HTTP版本
         private HttpStatus statusCode;
         private byte[] body;
+
+        public Builder() {}
+
+        public Builder(HttpResponse response) {
+            this.version = response.version;
+            this.statusCode = response.statusCode;
+            this.headers.putAll(response.headers);
+            this.body = response.body;
+        }
 
         public Builder version(String version) {
             this.version = version;

@@ -4,20 +4,33 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Map;
+import java.util.Set;
 
 import cn.edu.hit.cache.CacheManager;
 import cn.edu.hit.core.HttpConstant;
 import cn.edu.hit.core.HttpRequest;
 import cn.edu.hit.core.HttpResponse;
 import cn.edu.hit.core.HttpStatus;
+import cn.edu.hit.filter.FilterManager;
 import cn.edu.hit.utils.HttpUtils;
 
 public class ProxyHandler implements Runnable {
+
     private static final CacheManager cacheManager = new CacheManager(); // 全局缓存管理器
+    private final FilterManager filterManager; // 全局过滤器管理器
     private final Socket clientSocket;
 
     public ProxyHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
+        this.filterManager = new FilterManager();
+        System.out.println("[ProxyHandler] 创建新的代理处理器，客户端地址: " + clientSocket.getRemoteSocketAddress());
+    }
+
+    public ProxyHandler(Socket clientSocket, Set<String> blockedSites, Set<String> blockedUsers,
+        Map<String, String> redirectSites) {
+        this.clientSocket = clientSocket;
+        this.filterManager = new FilterManager(blockedSites, blockedUsers, redirectSites);
         System.out.println("[ProxyHandler] 创建新的代理处理器，客户端地址: " + clientSocket.getRemoteSocketAddress());
     }
 
@@ -31,6 +44,13 @@ public class ProxyHandler implements Runnable {
     }
 
     private void handleProxy(Socket clientSocket) throws IOException, ClassNotFoundException {
+        String user = clientSocket.getInetAddress().getHostAddress();
+        System.out.printf("[ProxyHandler] 正在处理用户 [%s] 的请求\n", user);
+        if (filterManager.isUserBlocked(user)) {
+            System.out.println("[ProxyHandler] 该用户已被禁止访问: " + user);
+            return;
+        }
+
         System.out.println("[ProxyHandler] 开始处理客户端请求: " + clientSocket.getRemoteSocketAddress());
         try (InputStream clientIn = clientSocket.getInputStream();
             OutputStream clientOut = clientSocket.getOutputStream()) {
@@ -41,9 +61,25 @@ public class ProxyHandler implements Runnable {
             System.out.print(httpRequest);
             System.out.println("========================================");
 
+            String host = httpRequest.getHost();
+
+            // 过滤逻辑
+            if (filterManager.isSiteBlocked(host)) {
+                System.out.println("[ProxyHandler] 该网站已被禁止访问: " + host);
+                return;
+            }
+
             if (httpRequest.getPort() != HttpConstant.HTTP_DEFAULT_PORT) {
                 System.err.println("[ProxyHandler] 仅支持HTTP协议，不支持HTTPS");
                 return;
+            }
+
+            // 检查是否有网站重定向规则
+            String redirectSite = filterManager.getRedirect(host);
+            if (redirectSite != null) {
+                System.out.printf("[ProxyHandler] 该网站 [%s] 已被重定向至: [%s]\n", host, redirectSite);
+                // 重定向目标网站
+                httpRequest = httpRequest.updateHeader("Host", redirectSite);
             }
 
             // 获取请求的 URI，用于缓存

@@ -24,6 +24,12 @@ public class HttpRequest {
         return new Builder();
     }
 
+    public HttpRequest updateHeader(String headerName, String headerValue) {
+        Builder builder = new Builder(this);
+        builder.header(headerName, headerValue);
+        return builder.build();
+    }
+
     public String getScheme() {
         String scheme = uri.getScheme();
         if (scheme == null) {
@@ -99,6 +105,16 @@ public class HttpRequest {
         private String method;
         private URI uri;
         private byte[] body;
+
+        public Builder() {}
+
+        public Builder(HttpRequest request) {
+            this.method = request.method;
+            this.uri = request.uri;
+            this.headers.putAll(request.headers);
+            this.version = request.version;
+            this.body = request.body;
+        }
 
         public Builder method(String method) {
             this.method = method;

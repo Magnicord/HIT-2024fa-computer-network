@@ -1,5 +1,7 @@
 package cn.edu.hit.cache;
 
+import static org.apache.commons.io.FileUtils.deleteDirectory;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,6 +25,7 @@ public class CacheManager {
 
     public CacheManager() {
         try {
+            deleteDirectory(new File(CACHE_DIRECTORY));
             Files.createDirectories(Paths.get(CACHE_DIRECTORY));
         } catch (IOException e) {
             throw new RuntimeException(e);

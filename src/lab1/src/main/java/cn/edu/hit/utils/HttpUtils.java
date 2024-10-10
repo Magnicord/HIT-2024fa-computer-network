@@ -256,15 +256,7 @@ public class HttpUtils {
     }
 
     public static HttpRequest addIfModifiedSinceHeader(HttpRequest request, ZonedDateTime lastModified) {
-        HttpRequest.Builder modifiedRequest = HttpRequest.newBuilder();
-        modifiedRequest.method(request.getMethod()).uri(request.getUri()).headers(request.getHeaders())
-            .version(request.getVersion());
-
-        if (lastModified != null) {
-            String lastModifiedString = DateUtils.parseHttpDateTime(lastModified);
-            modifiedRequest.header("If-Modified-Since", lastModifiedString);
-        }
-
-        return modifiedRequest.build();
+        return request.updateHeader("If-Modified-Since",
+            lastModified != null ? DateUtils.parseHttpDateTime(lastModified) : null);
     }
 }
