@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="EclipseCodeFormatterProjectSettings">
+    <option name="projectSpecificProfile">
+      <ProjectSpecificProfile>
+        <option name="configType" value="ECLIPSE_2_1" />
+        <option name="formatter" value="ECLIPSE" />
+      </ProjectSpecificProfile>
+    </option>
+    <option name="selectedGlobalProfile">
+      <Settings>
+        <option name="formatter" value="ECLIPSE" />
+        <option name="id" value="1714560462803" />
+        <option name="name" value="alibaba" />
+        <option name="pathToConfigFileJava" value="$PROJECT_DIR$/../../../../../../config/java-code-style/p3c-eclipse-codestyle.xml" />
+        <option name="selectedJavaProfile" value="P3C-CodeStyle" />
+      </Settings>
+    </option>
+  </component>
+</project>
