@@ -2,7 +2,7 @@ package cn.edu.hit.core;
 
 import java.nio.ByteBuffer;
 
-import cn.edu.hit.config.GBNConfig;
+import cn.edu.hit.config.CommonConfig;
 
 /**
  * @param seqNum 序列号，存储为int类型（0~255的无符号byte）
@@ -18,7 +18,7 @@ public record ACK(int seqNum) {
 
     // 从字节数组恢复ACK对象
     public static ACK fromBytes(byte[] bytes) {
-        if (bytes.length != GBNConfig.ACK_SIZE) {
+        if (bytes.length != CommonConfig.ACK_SIZE) {
             throw new IllegalArgumentException("ACK字节数组长度必须为1");
         }
         int seqNum = Byte.toUnsignedInt(bytes[0]); // 将无符号byte转换为int
@@ -27,7 +27,7 @@ public record ACK(int seqNum) {
 
     // 将ACK对象转换为字节数组，用于网络传输
     public byte[] toBytes() {
-        ByteBuffer buffer = ByteBuffer.allocate(GBNConfig.ACK_SIZE); // 只需要1字节来存储序列号
+        ByteBuffer buffer = ByteBuffer.allocate(CommonConfig.ACK_SIZE); // 只需要1字节来存储序列号
         buffer.put((byte)(seqNum & 0xFF)); // 转换为无符号byte
         return buffer.array();
     }

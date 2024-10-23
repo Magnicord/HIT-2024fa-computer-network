@@ -4,7 +4,6 @@ import java.net.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import cn.edu.hit.config.CommonConfig;
-import cn.edu.hit.config.GBNConfig;
 import cn.edu.hit.utils.IOUtils;
 import cn.edu.hit.utils.Timer;
 import lombok.extern.slf4j.Slf4j;
@@ -93,7 +92,7 @@ public class Sender {
         boolean received = false; // 是否收到 ACK
         while (!received) {
             try {
-                byte[] ackBuffer = new byte[GBNConfig.ACK_SIZE]; // 1字节的ACK缓冲区
+                byte[] ackBuffer = new byte[CommonConfig.ACK_SIZE]; // 1字节的ACK缓冲区
                 DatagramPacket ackPacket = new DatagramPacket(ackBuffer, ackBuffer.length);
                 socket.receive(ackPacket); // 接收ACK数据包
                 ACK ack = ACK.fromBytes(ackPacket.getData()); // 使用ACK类解析ACK数据包
@@ -114,7 +113,7 @@ public class Sender {
                 } else {
                     log.info("收到重复的ACK: {}，继续接收ACK", ackNum);
                 }
-            } catch (SocketTimeoutException e) { // 相当于将阻塞式的 receive 方法转换为非阻塞式，以便仅由 Timer 处理超时
+            } catch (SocketTimeoutException ignored) { // 相当于将阻塞式的 receive 方法转换为非阻塞式，以便仅由 Timer 处理超时
             }
         }
     }
