@@ -5,7 +5,8 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.file.Path;
 
-import cn.edu.hit.config.Config;
+import cn.edu.hit.config.CommonConfig;
+import cn.edu.hit.config.GBNConfig;
 import cn.edu.hit.core.Sender;
 import lombok.extern.slf4j.Slf4j;
 
@@ -14,8 +15,6 @@ public class Server {
 
     private final DatagramSocket socket; // 服务器端的UDP套接字
     private Sender sender; // 发送方逻辑管理类
-    private InetAddress clientAddress; // 客户端地址
-    private int clientPort; // 客户端端口
 
     public Server(int port) throws Exception {
         socket = new DatagramSocket(port); // 绑定服务器端口
@@ -23,7 +22,7 @@ public class Server {
     }
 
     public static void main(String[] args) throws Exception {
-        Server server = new Server(Config.SERVER_PORT); // 创建服务器
+        Server server = new Server(GBNConfig.SERVER_PORT); // 创建服务器
         server.waitForClient(); // 等待客户端连接
         String CWD = System.getProperty("user.dir");
         Path path = Path.of(CWD, "assets", "upload", "campus.jpg");
@@ -37,13 +36,15 @@ public class Server {
         byte[] buffer = new byte[1024];
         DatagramPacket requestPacket = new DatagramPacket(buffer, buffer.length);
         socket.receive(requestPacket); // 接收来自客户端的初始请求
-        clientAddress = requestPacket.getAddress(); // 获取客户端地址
-        clientPort = requestPacket.getPort(); // 获取客户端端口
+        // 客户端地址
+        InetAddress clientAddress = requestPacket.getAddress(); // 获取客户端地址
+        // 客户端端口
+        int clientPort = requestPacket.getPort(); // 获取客户端端口
         log.info("服务器已连接到客户端 {}:{}", clientAddress, clientPort);
 
         // 初始化Sender类，用于数据传输
-        sender = new Sender(socket, clientAddress, clientPort, Config.WINDOW_SIZE, Config.SEQ_BITS,
-            Config.SENDER_PACKET_LOSS_RATE, Config.TIMEOUT);
+        sender = new Sender(socket, clientAddress, clientPort, GBNConfig.WINDOW_SIZE, GBNConfig.SEQ_BITS,
+            CommonConfig.SENDER_PACKET_LOSS_RATE, CommonConfig.TIMEOUT);
     }
 
     /**

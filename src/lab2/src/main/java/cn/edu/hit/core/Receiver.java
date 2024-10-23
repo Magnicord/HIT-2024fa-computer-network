@@ -4,7 +4,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
-import cn.edu.hit.config.Config;
+import cn.edu.hit.config.CommonConfig;
 import cn.edu.hit.utils.IOUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,7 +32,7 @@ public class Receiver {
 
     public void receiveData(String fileName) throws Exception {
         while (!eof) {
-            byte[] receiveBuffer = new byte[Config.BUFFER_SIZE]; // 接收数据的缓冲区
+            byte[] receiveBuffer = new byte[CommonConfig.BUFFER_SIZE]; // 接收数据的缓冲区
             DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
             socket.receive(receivePacket); // 接收来自发送方的数据包
             Packet packet = Packet.fromBytes(receivePacket.getData()); // 解析数据包

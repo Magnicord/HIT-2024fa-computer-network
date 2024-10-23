@@ -5,7 +5,8 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.file.Path;
 
-import cn.edu.hit.config.Config;
+import cn.edu.hit.config.CommonConfig;
+import cn.edu.hit.config.GBNConfig;
 import cn.edu.hit.core.Receiver;
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,11 +23,12 @@ public class Client {
         log.info("客户端已连接到服务器 {}:{}", serverIp, serverPort);
 
         // 初始化Receiver类，用于接收数据包
-        receiver = new Receiver(socket, serverAddress, serverPort, Config.SEQ_BITS, Config.RECEIVER_PACKET_LOSS_RATE);
+        receiver =
+            new Receiver(socket, serverAddress, serverPort, GBNConfig.SEQ_BITS, CommonConfig.RECEIVER_PACKET_LOSS_RATE);
     }
 
     public static void main(String[] args) throws Exception {
-        Client client = new Client("127.0.0.1", Config.SERVER_PORT); // 创建客户端，连接服务器
+        Client client = new Client("127.0.0.1", GBNConfig.SERVER_PORT); // 创建客户端，连接服务器
         client.sendConnectionRequest(); // 发送连接请求
         String CWD = System.getProperty("user.dir");
         Path path = Path.of(CWD, "assets", "download", "campus.jpg");
@@ -40,7 +42,7 @@ public class Client {
         String requestMessage = "REQUEST_CONNECTION";
         byte[] requestBuffer = requestMessage.getBytes();
         DatagramPacket requestPacket =
-            new DatagramPacket(requestBuffer, requestBuffer.length, serverAddress, Config.SERVER_PORT);
+            new DatagramPacket(requestBuffer, requestBuffer.length, serverAddress, GBNConfig.SERVER_PORT);
         socket.send(requestPacket); // 发送连接请求
         log.info("客户端已发送连接请求...");
     }

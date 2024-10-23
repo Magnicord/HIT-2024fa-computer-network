@@ -3,7 +3,8 @@ package cn.edu.hit.core;
 import java.net.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import cn.edu.hit.config.Config;
+import cn.edu.hit.config.CommonConfig;
+import cn.edu.hit.config.GBNConfig;
 import cn.edu.hit.utils.IOUtils;
 import cn.edu.hit.utils.Timer;
 import lombok.extern.slf4j.Slf4j;
@@ -43,16 +44,16 @@ public class Sender {
     }
 
     public void sendData(byte[] data) throws Exception {
-        int totalPackets = (int)Math.ceil((double)data.length / Config.DATA_SIZE); // 计算总的数据包数
-        byte[] sendBuffer = new byte[Config.DATA_SIZE]; // 创建1024字节的缓冲区
+        int totalPackets = (int)Math.ceil((double)data.length / CommonConfig.DATA_SIZE); // 计算总的数据包数
+        byte[] sendBuffer = new byte[CommonConfig.DATA_SIZE]; // 创建1024字节的缓冲区
         // 当滑动窗口未覆盖所有数据包时
         while (base < totalPackets) {
             log.info("当前发送进度: {}/{}", base, totalPackets);
             // 发送方不会发送超过窗口大小的数据包，并且不会发送超过总数据包数的数据包
             while (nextSeqNum < base + windowSize && nextSeqNum < totalPackets) {
                 // 计算当前包的实际大小 (<= 1024)
-                int dataLength = Math.min(Config.DATA_SIZE, data.length - nextSeqNum * Config.DATA_SIZE);
-                System.arraycopy(data, nextSeqNum * Config.DATA_SIZE, sendBuffer, 0, dataLength); // 复制数据到包中
+                int dataLength = Math.min(CommonConfig.DATA_SIZE, data.length - nextSeqNum * CommonConfig.DATA_SIZE);
+                System.arraycopy(data, nextSeqNum * CommonConfig.DATA_SIZE, sendBuffer, 0, dataLength); // 复制数据到包中
 
                 // 判断是否为最后一个数据包（EOF）
                 boolean eof = (nextSeqNum == totalPackets - 1);
@@ -78,6 +79,7 @@ public class Sender {
             log.info("等待接收ACK...");
             receiveAck();
         }
+        socket.setSoTimeout(0);
     }
 
     private void sendPacket(Packet packet) throws Exception {
@@ -91,11 +93,11 @@ public class Sender {
         boolean received = false; // 是否收到 ACK
         while (!received) {
             try {
-                byte[] ackBuffer = new byte[Config.ACK_SIZE]; // 1字节的ACK缓冲区
+                byte[] ackBuffer = new byte[GBNConfig.ACK_SIZE]; // 1字节的ACK缓冲区
                 DatagramPacket ackPacket = new DatagramPacket(ackBuffer, ackBuffer.length);
                 socket.receive(ackPacket); // 接收ACK数据包
                 ACK ack = ACK.fromBytes(ackPacket.getData()); // 使用ACK类解析ACK数据包
-                int ackNum = ack.getSeqNum(); // 获取ACK的序列号
+                int ackNum = ack.seqNum(); // 获取ACK的序列号
 
                 log.info("接收到ACK: {}", ackNum);
                 // 计算 base 滑动窗口大小
