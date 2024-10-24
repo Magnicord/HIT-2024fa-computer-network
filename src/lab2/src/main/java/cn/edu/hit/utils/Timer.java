@@ -15,7 +15,6 @@ public class Timer {
         this.timeout = timeout;
     }
 
-    // 启动计时器，设置超时任务
     public void start(Runnable task) {
         if (scheduler == null) {
             scheduler = Executors.newScheduledThreadPool(1); // 创建新的调度器
@@ -24,14 +23,12 @@ public class Timer {
         scheduler.schedule(this::onTimeout, timeout, TimeUnit.MILLISECONDS);
     }
 
-    // 超时处理逻辑
     private void onTimeout() {
         if (task != null) {
             task.run(); // 执行超时任务
         }
     }
 
-    // 停止计时器
     public void stop() {
         if (scheduler != null) {
             scheduler.shutdownNow(); // 立即停止所有任务

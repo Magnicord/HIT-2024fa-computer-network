@@ -9,14 +9,12 @@ import cn.edu.hit.config.CommonConfig;
  */
 public record ACK(int seqNum) {
 
-    // 构造函数，传入序列号
     public ACK {
         if (seqNum < 0 || seqNum > 255) {
             throw new IllegalArgumentException("序列号Seq必须在0到255之间");
         }
     }
 
-    // 从字节数组恢复ACK对象
     public static ACK fromBytes(byte[] bytes) {
         if (bytes.length != CommonConfig.ACK_SIZE) {
             throw new IllegalArgumentException("ACK字节数组长度必须为1");
@@ -25,7 +23,6 @@ public record ACK(int seqNum) {
         return new ACK(seqNum);
     }
 
-    // 将ACK对象转换为字节数组，用于网络传输
     public byte[] toBytes() {
         ByteBuffer buffer = ByteBuffer.allocate(CommonConfig.ACK_SIZE); // 只需要1字节来存储序列号
         buffer.put((byte)(seqNum & 0xFF)); // 转换为无符号byte

@@ -66,21 +66,10 @@ public class SRSender implements Sender {
                 boolean eof = (nextSeqNum == totalPackets - 1);
                 Packet packet = new Packet(nextSeqNum % seqSize, sendBuffer, dataLength, eof);
 
-                // 模拟丢包
                 if (Math.random() > packetLossRate) {
                     sendPacket(packet); // 发送数据包
                 }
-
-                // 保存发送的包
                 sentPackets.put(nextSeqNum % seqSize, packet);
-
-                // if (base == nextSeqNum) {
-                // for (int i = base; i < base + windowSize && i < totalPackets; i++) {
-                // ackReceived[i % seqSize] = false;
-                // }
-                // }
-
-                // 启动计时器
                 startTimer(nextSeqNum % seqSize);
                 nextSeqNum++;
             }
@@ -95,7 +84,6 @@ public class SRSender implements Sender {
         log.info("发送数据包的序列号: {}", packet.getSeqNum());
     }
 
-    // 处理ACK的接收
     private void receiveAck() {
         boolean received = false; // 是否收到 ACK
         while (!received) {
@@ -115,24 +103,9 @@ public class SRSender implements Sender {
     }
 
     private boolean handleAck(int ackNum) {
-        // if (ackReceived[ackNum]) {
-        // return false;
-        // }
-
         if (isInWindow(ackNum)) {
             ackReceived[ackNum] = true;
             if (ackNum == base % seqSize) {
-                // int slideSize = 1;
-                // while (base + slideSize < nextSeqNum && ackReceived[(base + slideSize) % seqSize]) {
-                // slideSize++;
-                // }
-                // base += slideSize;
-
-                // do {
-                // // timers[base % seqSize].stop();
-                // base++;
-                // } while (base < nextSeqNum && ackReceived[base % seqSize]);
-
                 while (base < nextSeqNum && ackReceived[base % seqSize]) {
                     timers[base % seqSize].stop();
                     ackReceived[base % seqSize] = false; // 重置ACK接收状态

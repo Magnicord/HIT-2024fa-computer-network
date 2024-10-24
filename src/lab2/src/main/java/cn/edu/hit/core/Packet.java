@@ -8,16 +8,13 @@ import lombok.Getter;
 
 public class Packet {
 
-    // 获取序列号，返回int类型（0~255）
     @Getter
     private final int seqNum; // 序列号，存储为int类型，用于表示0-255的无符号byte
     private final byte[] data; // 数据部分，固定为1024字节
     private final int dataLength; // 数据的实际长度，使用int类型，占用2字节
-    // 判断是否是最后一个数据包
     @Getter
     private final boolean eof; // EOF标志，使用boolean类型
 
-    // 构造函数，初始化数据包，添加边界检查
     public Packet(int seqNum, byte[] data, int dataLength, boolean eof) {
         // 确保Seq在0-255的范围内
         if (seqNum < 0 || seqNum > 255) {
@@ -40,7 +37,6 @@ public class Packet {
         this.eof = eof; // 直接使用boolean类型表示EOF状态
     }
 
-    // 从字节数组中恢复Packet对象，用于接收数据时的解析
     public static Packet fromBytes(byte[] bytes) {
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
         int seqNum = Byte.toUnsignedInt(buffer.get()); // 将无符号byte转换为int
@@ -53,12 +49,10 @@ public class Packet {
         return new Packet(seqNum, data, dataLength, eof); // 构造Packet对象并返回
     }
 
-    // 获取数据内容
     public byte[] getData() {
         return Arrays.copyOf(data, dataLength);
     }
 
-    // 将Packet对象转换为字节数组，用于网络传输
     public byte[] toBytes() {
         ByteBuffer buffer = ByteBuffer.allocate(CommonConfig.BUFFER_SIZE); // 使用Config.BUFFER_SIZE
         buffer.put((byte)(seqNum & 0xFF)); // 将序列号转换为无符号byte

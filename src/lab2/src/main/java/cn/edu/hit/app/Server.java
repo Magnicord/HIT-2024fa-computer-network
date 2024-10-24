@@ -32,9 +32,6 @@ public class Server {
         server.sendFile(path.toString()); // 发送文件数据
     }
 
-    /**
-     * 等待客户端连接（实际只是接收初始的消息，用来获取客户端的地址和端口）
-     */
     public void waitForClient() throws IOException {
         byte[] buffer = new byte[1024];
         DatagramPacket requestPacket = new DatagramPacket(buffer, buffer.length);
@@ -52,9 +49,6 @@ public class Server {
             SRConfig.SEQ_BITS, CommonConfig.SENDER_PACKET_LOSS_RATE, CommonConfig.TIMEOUT);
     }
 
-    /**
-     * 发送文件数据
-     */
     public void sendFile(String fileName) throws IOException {
         log.info("开始发送文件...");
         sender.sendFile(fileName); // 调用Sender类发送数据

@@ -37,9 +37,6 @@ public class Client {
         client.receiveFile(path.toString()); // 接收文件数据
     }
 
-    /**
-     * 发送连接请求
-     */
     public void sendConnectionRequest() throws IOException {
         String requestMessage = "REQUEST_CONNECTION";
         byte[] requestBuffer = requestMessage.getBytes();
@@ -49,9 +46,6 @@ public class Client {
         log.info("客户端已发送连接请求...");
     }
 
-    /**
-     * 接收文件数据
-     */
     public void receiveFile(String fileName) throws IOException {
         log.info("客户端开始接收文件...");
         receiver.receiveData(fileName);
