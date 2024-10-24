@@ -21,44 +21,82 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class App {
 
-    private final InetAddress serverAddress; // 服务器地址
+    // 服务器地址
+    private final InetAddress serverAddress;
+    // 目标端口
     private final int dstPort;
+    // 源端口
     private final int srcPort;
+    // 输入扫描器
     private final Scanner in = new Scanner(System.in);
-    private Receiver receiver; // 接收方逻辑管理类
-    private DatagramSocket clientSocket; // 接收方的UDP套接字
-    private DatagramSocket serverSocket; // 发送方的UDP套接字
+    // 接收方逻辑管理类
+    private Receiver receiver;
+    // 接收方的 UDP 套接字
+    private DatagramSocket clientSocket;
+    // 发送方的 UDP 套接字
+    private DatagramSocket serverSocket;
+    // 发送方逻辑管理类
     private Sender sender;
-    private int clientPort; // 客户端端口
-    private InetAddress clientAddress; // 客户端地址
+    // 客户端端口
+    private int clientPort;
+    // 客户端地址
+    private InetAddress clientAddress;
 
+    /**
+     * 构造方法，初始化 App 对象
+     *
+     * @param dstIp 目标 IP 地址
+     * @param dstPort 目标端口
+     * @param srcPort 源端口
+     * @throws UnknownHostException 如果无法解析 IP 地址
+     */
     public App(String dstIp, int dstPort, int srcPort) throws UnknownHostException {
         this.serverAddress = InetAddress.getByName(dstIp); // 获取服务器地址
         this.dstPort = dstPort;
         this.srcPort = srcPort;
     }
 
+    /**
+     * 发送字符串数据包
+     *
+     * @param str 要发送的字符串
+     * @param socket 套接字
+     * @param address 目标地址
+     * @param port 目标端口
+     */
     private static void sendString(String str, DatagramSocket socket, InetAddress address, int port) {
-        byte[] sendBuffer = str.getBytes();
+        byte[] sendBuffer = str.getBytes(); // 将字符串转换为字节数组
         DatagramPacket sendPacket = new DatagramPacket(sendBuffer, sendBuffer.length, address, port);
         try {
-            socket.send(sendPacket);
+            socket.send(sendPacket); // 发送数据包
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
+    /**
+     * 获取文件路径
+     *
+     * @param mode 模式（上传或下载）
+     * @param fileName 文件名
+     * @return 文件路径
+     */
     private static String getFilePath(String mode, String fileName) {
-        String CWD = System.getProperty("user.dir");
+        String CWD = System.getProperty("user.dir"); // 获取当前工作目录
         Path path = Path.of(CWD, "assets", mode, fileName);
         return path.toString();
     }
 
+    /**
+     * 作为服务器接收字符串数据包
+     *
+     * @return 接收到的字符串
+     */
     private String receiveStringAsServer() {
-        byte[] receiveBuffer = new byte[1024];
+        byte[] receiveBuffer = new byte[1024]; // 接收缓冲区
         DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
         try {
-            serverSocket.receive(receivePacket);
+            serverSocket.receive(receivePacket); // 接收数据包
             clientAddress = receivePacket.getAddress(); // 获取客户端地址
             clientPort = receivePacket.getPort(); // 获取客户端端口
             return new String(receivePacket.getData(), 0, receivePacket.getLength());
@@ -67,6 +105,11 @@ public class App {
         }
     }
 
+    /**
+     * 启动应用
+     *
+     * @throws IOException 如果发生 I/O 错误
+     */
     public void start() throws IOException {
         boolean isExit = false;
         while (!isExit) {
@@ -89,10 +132,15 @@ public class App {
         in.close();
     }
 
+    /**
+     * 客户端下载模式
+     *
+     * @throws IOException 如果发生 I/O 错误
+     */
     private void downloadMode() throws IOException {
         boolean isExit = false;
         while (!isExit) {
-            clientSocket = new DatagramSocket(); // 创建接收方UDP套接字
+            clientSocket = new DatagramSocket(); // 创建接收方 UDP 套接字
             System.out.println();
             System.out.println("进入客户端下载模式，以下是可输入的命令");
             System.out.println("---------------------------------");
@@ -142,8 +190,13 @@ public class App {
         }
     }
 
+    /**
+     * 服务器上传模式
+     *
+     * @throws IOException 如果发生 I/O 错误
+     */
     private void uploadMode() throws IOException {
-        serverSocket = new DatagramSocket(srcPort);
+        serverSocket = new DatagramSocket(srcPort); // 创建发送方 UDP 套接字
         System.out.println();
         System.out.println("进入服务器上传模式，等待客户端发送命令...");
         boolean isExit = false;
@@ -174,12 +227,12 @@ public class App {
                             break;
                         }
                         if (prompt.startsWith(AppConfig.GBN_PROMPT_PREFIX)) {
-                            System.out.println("客户端请求测试GBN协议...");
+                            System.out.println("客户端请求测试 GBN 协议...");
                             sender =
                                 Sender.createGBNSender(serverSocket, clientAddress, clientPort, GBNConfig.WINDOW_SIZE,
                                     GBNConfig.SEQ_BITS, CommonConfig.SENDER_PACKET_LOSS_RATE, CommonConfig.TIMEOUT);
                         } else {
-                            System.out.println("客户端请求测试SR协议...");
+                            System.out.println("客户端请求测试 SR 协议...");
                             sender = Sender.createSRSender(serverSocket, clientAddress, clientPort,
                                 SRConfig.SENDER_WINDOW_SIZE, SRConfig.SEQ_BITS, CommonConfig.SENDER_PACKET_LOSS_RATE,
                                 CommonConfig.TIMEOUT);
@@ -200,25 +253,42 @@ public class App {
         }
     }
 
+    /**
+     * 发送文件
+     *
+     * @param fileName 文件名
+     * @throws IOException 如果发生 I/O 错误
+     */
     private void sendFile(String fileName) throws IOException {
         log.info("开始发送文件...");
-        fileName = getFilePath("upload", fileName);
-        sender.sendFile(fileName);
+        fileName = getFilePath("upload", fileName); // 获取文件路径
+        sender.sendFile(fileName); // 发送文件
         log.info("文件发送完毕！");
     }
 
+    /**
+     * 接收文件
+     *
+     * @param fileName 文件名
+     * @throws IOException 如果发生 I/O 错误
+     */
     private void receiveFile(String fileName) throws IOException {
         log.info("客户端开始接收文件...");
-        fileName = getFilePath("download", fileName);
-        receiver.receiveData(fileName);
+        fileName = getFilePath("download", fileName); // 获取文件路径
+        receiver.receiveData(fileName); // 接收文件
         log.info("客户端文件接收完毕！");
     }
 
+    /**
+     * 作为客户端接收字符串数据包
+     *
+     * @return 接收到的字符串
+     */
     private String receiveStringAsClient() {
-        byte[] receiveBuffer = new byte[1024];
+        byte[] receiveBuffer = new byte[1024]; // 接收缓冲区
         DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
         try {
-            clientSocket.receive(receivePacket);
+            clientSocket.receive(receivePacket); // 接收数据包
             return new String(receivePacket.getData(), 0, receivePacket.getLength());
         } catch (IOException e) {
             throw new RuntimeException(e);
