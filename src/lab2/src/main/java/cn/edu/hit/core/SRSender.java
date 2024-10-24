@@ -74,14 +74,14 @@ public class SRSender implements Sender {
                 // 保存发送的包
                 sentPackets.put(nextSeqNum % seqSize, packet);
 
-                if (base == nextSeqNum) {
-                    for (int i = base; i < base + windowSize && i < totalPackets; i++) {
-                        ackReceived[i % seqSize] = false;
-                    }
-                }
+                // if (base == nextSeqNum) {
+                // for (int i = base; i < base + windowSize && i < totalPackets; i++) {
+                // ackReceived[i % seqSize] = false;
+                // }
+                // }
 
                 // 启动计时器
-                startTimer(nextSeqNum);
+                startTimer(nextSeqNum % seqSize);
                 nextSeqNum++;
             }
             receiveAck();
@@ -103,8 +103,8 @@ public class SRSender implements Sender {
                 byte[] ackBytes = new byte[CommonConfig.ACK_SIZE]; // 创建ACK字节数组
                 DatagramPacket ackPacket = new DatagramPacket(ackBytes, ackBytes.length); // 创建ACK数据包
                 socket.receive(ackPacket); // 接收ACK数据包
-                Packet ack = Packet.fromBytes(ackBytes); // 将字节数组转换为Packet对象
-                int ackNum = ack.getSeqNum(); // 获取ACK的序列号
+                ACK ack = ACK.fromBytes(ackBytes); // 将字节数组转换为Packet对象
+                int ackNum = ack.seqNum(); // 获取ACK的序列号
                 log.info("接收到ACK: {}", ackNum);
                 received = handleAck(ackNum); // 处理ACK
             } catch (SocketTimeoutException ignored) {
@@ -118,30 +118,33 @@ public class SRSender implements Sender {
         // if (ackReceived[ackNum]) {
         // return false;
         // }
-        ackReceived[ackNum] = true;
-        if (ackNum == base % seqSize) {
-            // int slideSize = 1;
-            // while (base + slideSize < nextSeqNum && ackReceived[(base + slideSize) % seqSize]) {
-            // slideSize++;
-            // }
-            // base += slideSize;
 
-            do {
-                timers[base % seqSize].stop();
-                base++;
-            } while (base < nextSeqNum && ackReceived[base % seqSize]);
-            // if (base == nextSeqNum) {
-            // log.info("当前窗口的数据包均已发送并确认，停止定时器");
-            // timer.stop();
-            // } else {
-            // startTimer();
-            // }
-            return true;
+        if (isInWindow(ackNum)) {
+            ackReceived[ackNum] = true;
+            if (ackNum == base % seqSize) {
+                // int slideSize = 1;
+                // while (base + slideSize < nextSeqNum && ackReceived[(base + slideSize) % seqSize]) {
+                // slideSize++;
+                // }
+                // base += slideSize;
+
+                // do {
+                // // timers[base % seqSize].stop();
+                // base++;
+                // } while (base < nextSeqNum && ackReceived[base % seqSize]);
+
+                while (base < nextSeqNum && ackReceived[base % seqSize]) {
+                    timers[base % seqSize].stop();
+                    ackReceived[base % seqSize] = false; // 重置ACK接收状态
+                    base++;
+                }
+                return true;
+            }
         }
         return false;
     }
 
-    private void handleTimeout(int seqNum) throws Exception {
+    private void handleTimeout(int seqNum) throws IOException {
         if (ackReceived[seqNum]) {
             return;
         }
@@ -154,9 +157,19 @@ public class SRSender implements Sender {
         timers[seqNum].start(() -> {
             try {
                 handleTimeout(seqNum);
-            } catch (Exception e) {
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    private boolean isInWindow(int seqNum) {
+        int last = (base + windowSize - 1) % seqSize;
+        int base = this.base % seqSize;
+        if (base <= last) {
+            return seqNum >= base && seqNum <= last;
+        } else {
+            return seqNum >= base || seqNum <= last;
+        }
     }
 }

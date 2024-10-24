@@ -62,7 +62,9 @@ public class GBNReceiver implements Receiver {
             } else {
                 // 乱序包，发送之前的ACK
                 log.info("接收到乱序包，期望的序列号: {}，收到的序列号: {}", expectedSeqNum, packet.getSeqNum());
-                sendAck((expectedSeqNum - 1 + seqSize) % seqSize); // 重发之前的ACK
+                if (Math.random() > packetLossRate) {
+                    sendAck((expectedSeqNum - 1 + seqSize) % seqSize);// 重发之前的ACK
+                }
             }
         }
     }

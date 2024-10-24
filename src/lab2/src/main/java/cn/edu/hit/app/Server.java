@@ -9,6 +9,7 @@ import java.nio.file.Path;
 
 import cn.edu.hit.config.CommonConfig;
 import cn.edu.hit.config.GBNConfig;
+import cn.edu.hit.config.SRConfig;
 import cn.edu.hit.core.Sender;
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,7 +28,7 @@ public class Server {
         Server server = new Server(GBNConfig.SERVER_PORT); // 创建服务器
         server.waitForClient(); // 等待客户端连接
         String CWD = System.getProperty("user.dir");
-        Path path = Path.of(CWD, "assets", "upload", "campus.jpg");
+        Path path = Path.of(CWD, "assets", "upload", "prince.txt");
         server.sendFile(path.toString()); // 发送文件数据
     }
 
@@ -45,8 +46,10 @@ public class Server {
         log.info("服务器已连接到客户端 {}:{}", clientAddress, clientPort);
 
         // 初始化Sender类，用于数据传输
-        sender = Sender.createGBNSender(socket, clientAddress, clientPort, GBNConfig.WINDOW_SIZE, GBNConfig.SEQ_BITS,
-            CommonConfig.SENDER_PACKET_LOSS_RATE, CommonConfig.TIMEOUT);
+        // sender = Sender.createGBNSender(socket, clientAddress, clientPort, GBNConfig.WINDOW_SIZE, GBNConfig.SEQ_BITS,
+        // CommonConfig.SENDER_PACKET_LOSS_RATE, CommonConfig.TIMEOUT);
+        sender = Sender.createSRSender(socket, clientAddress, clientPort, SRConfig.SENDER_WINDOW_SIZE,
+            SRConfig.SEQ_BITS, CommonConfig.SENDER_PACKET_LOSS_RATE, CommonConfig.TIMEOUT);
     }
 
     /**

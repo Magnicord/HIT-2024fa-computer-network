@@ -6,8 +6,8 @@ import java.util.concurrent.TimeUnit;
 
 public class Timer {
 
-    private final ScheduledExecutorService scheduler;
     private final long timeout; // 超时值，单位为毫秒
+    private ScheduledExecutorService scheduler;
     private Runnable task;
 
     public Timer(long timeout) {
@@ -17,6 +17,9 @@ public class Timer {
 
     // 启动计时器，设置超时任务
     public void start(Runnable task) {
+        if (scheduler == null) {
+            scheduler = Executors.newScheduledThreadPool(1); // 创建新的调度器
+        }
         this.task = task;
         scheduler.schedule(this::onTimeout, timeout, TimeUnit.MILLISECONDS);
     }
@@ -30,6 +33,9 @@ public class Timer {
 
     // 停止计时器
     public void stop() {
-        scheduler.shutdownNow(); // 立即停止所有任务
+        if (scheduler != null) {
+            scheduler.shutdownNow(); // 立即停止所有任务
+            scheduler = null; // 将scheduler设置为null，防止再次使用
+        }
     }
 }

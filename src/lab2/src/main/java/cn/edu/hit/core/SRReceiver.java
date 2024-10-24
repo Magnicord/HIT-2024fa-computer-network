@@ -19,9 +19,8 @@ public class SRReceiver implements Receiver {
     private final int seqSize; // 序列号的最大值
     private final double packetLossRate; // ACK丢包率
     private final Packet[] packetsBuffered; // 是否接收到数据包
-    private final boolean[] packetsReceived; // 是否接收到数据包
     private boolean eof; // 是否接收到EOF包
-    private int expectedSeqNum; // 期望的序列号
+    private int base; // 期望的序列号
 
     public SRReceiver(DatagramSocket socket, InetAddress serverAddress, int serverPort, int windowSize, int seqBits,
         double packetLossRate) {
@@ -30,11 +29,10 @@ public class SRReceiver implements Receiver {
         this.serverPort = serverPort;
         this.windowSize = windowSize;
         this.packetLossRate = packetLossRate;
-        this.expectedSeqNum = 0; // 初始期望的序列号为0
+        this.base = 0; // 初始期望的序列号为0
         this.eof = false; // 初始时未接收到EOF
         this.seqSize = (int)Math.pow(2, seqBits); // 计算序列号的最大值
         this.packetsBuffered = new Packet[seqSize];
-        this.packetsReceived = new boolean[seqSize];
     }
 
     @Override
@@ -51,17 +49,22 @@ public class SRReceiver implements Receiver {
                 eof = true;
                 log.info("接收到EOF包，结束接收数据");
             }
-            sendAck(seqNum);
-
             if (isInWindow(seqNum)) {
-                packetsReceived[seqNum] = true;
-                if (seqNum == expectedSeqNum) {
-                    do {
+                if (Math.random() > packetLossRate) {
+                    sendAck(seqNum);
+                }
+                packetsBuffered[seqNum] = packet;
+                if (seqNum == base) {
+                    while (packet != null) {
                         deliverPacket(packet, fileName);
-                        packetsBuffered[expectedSeqNum] = null;
-                        expectedSeqNum = (expectedSeqNum + 1) % seqSize;
-                        packet = packetsBuffered[expectedSeqNum];
-                    } while (packet != null);
+                        packetsBuffered[base] = null;
+                        base = (base + 1) % seqSize;
+                        packet = packetsBuffered[base];
+                    }
+                }
+            } else if (isInLastWindow(seqNum)) {
+                if (Math.random() > packetLossRate) {
+                    sendAck(seqNum);
                 }
             }
         }
@@ -80,11 +83,21 @@ public class SRReceiver implements Receiver {
     }
 
     private boolean isInWindow(int seqNum) {
-        int last = (expectedSeqNum + windowSize - 1) % seqSize;
-        if (expectedSeqNum <= last) {
-            return seqNum >= expectedSeqNum && seqNum <= last;
+        int last = (base + windowSize - 1) % seqSize;
+        if (base <= last) {
+            return seqNum >= base && seqNum <= last;
         } else {
-            return seqNum >= expectedSeqNum || seqNum <= last;
+            return seqNum >= base || seqNum <= last;
+        }
+    }
+
+    private boolean isInLastWindow(int seqNum) {
+        int last = (this.base - 1 + seqSize) % seqSize;
+        int base = (this.base - windowSize + seqSize) % seqSize;
+        if (base <= last) {
+            return seqNum >= base && seqNum <= last;
+        } else {
+            return seqNum >= base || seqNum <= last;
         }
     }
 }

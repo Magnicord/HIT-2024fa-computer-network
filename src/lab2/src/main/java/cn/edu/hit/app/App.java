@@ -131,7 +131,7 @@ public class App {
                                 GBNConfig.SEQ_BITS, CommonConfig.RECEIVER_PACKET_LOSS_RATE);
                         } else {
                             receiver = Receiver.createSRReceiver(clientSocket, serverAddress, dstPort,
-                                SRConfig.RECEIVER_WINDOW_SIZE, GBNConfig.SEQ_BITS,
+                                SRConfig.RECEIVER_WINDOW_SIZE, SRConfig.SEQ_BITS,
                                 CommonConfig.RECEIVER_PACKET_LOSS_RATE);
                         }
                         String fileName = args[1];
