@@ -1,8 +1,10 @@
 package cn.edu.hit.app;
 
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketException;
 import java.nio.file.Path;
 
 import cn.edu.hit.config.CommonConfig;
@@ -16,12 +18,12 @@ public class Server {
     private final DatagramSocket socket; // 服务器端的UDP套接字
     private Sender sender; // 发送方逻辑管理类
 
-    public Server(int port) throws Exception {
+    public Server(int port) throws SocketException {
         socket = new DatagramSocket(port); // 绑定服务器端口
         log.info("服务器已启动，等待客户端连接...");
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws IOException {
         Server server = new Server(GBNConfig.SERVER_PORT); // 创建服务器
         server.waitForClient(); // 等待客户端连接
         String CWD = System.getProperty("user.dir");
@@ -32,7 +34,7 @@ public class Server {
     /**
      * 等待客户端连接（实际只是接收初始的消息，用来获取客户端的地址和端口）
      */
-    public void waitForClient() throws Exception {
+    public void waitForClient() throws IOException {
         byte[] buffer = new byte[1024];
         DatagramPacket requestPacket = new DatagramPacket(buffer, buffer.length);
         socket.receive(requestPacket); // 接收来自客户端的初始请求
@@ -43,14 +45,14 @@ public class Server {
         log.info("服务器已连接到客户端 {}:{}", clientAddress, clientPort);
 
         // 初始化Sender类，用于数据传输
-        sender = new Sender(socket, clientAddress, clientPort, GBNConfig.WINDOW_SIZE, GBNConfig.SEQ_BITS,
+        sender = Sender.createGBNSender(socket, clientAddress, clientPort, GBNConfig.WINDOW_SIZE, GBNConfig.SEQ_BITS,
             CommonConfig.SENDER_PACKET_LOSS_RATE, CommonConfig.TIMEOUT);
     }
 
     /**
      * 发送文件数据
      */
-    public void sendFile(String fileName) throws Exception {
+    public void sendFile(String fileName) throws IOException {
         log.info("开始发送文件...");
         sender.sendFile(fileName); // 调用Sender类发送数据
         log.info("文件发送完毕！");

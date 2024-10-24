@@ -10,31 +10,25 @@ import cn.edu.hit.utils.IOUtils;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class SRReceiver implements Receiver {
+public class GBNReceiver implements Receiver {
 
     private final DatagramSocket socket; // 接收端的UDP套接字
     private final InetAddress serverAddress; // 服务器地址（发送端）
     private final int serverPort; // 服务器端口
-    private final int windowSize; // 窗口大小
     private final int seqSize; // 序列号的最大值
     private final double packetLossRate; // ACK丢包率
-    private final Packet[] packetsBuffered; // 是否接收到数据包
-    private final boolean[] packetsReceived; // 是否接收到数据包
-    private boolean eof; // 是否接收到EOF包
     private int expectedSeqNum; // 期望的序列号
+    private boolean eof; // 是否接收到EOF包
 
-    public SRReceiver(DatagramSocket socket, InetAddress serverAddress, int serverPort, int windowSize, int seqBits,
+    public GBNReceiver(DatagramSocket socket, InetAddress serverAddress, int serverPort, int seqBits,
         double packetLossRate) {
         this.socket = socket;
         this.serverAddress = serverAddress;
         this.serverPort = serverPort;
-        this.windowSize = windowSize;
         this.packetLossRate = packetLossRate;
         this.expectedSeqNum = 0; // 初始期望的序列号为0
         this.eof = false; // 初始时未接收到EOF
         this.seqSize = (int)Math.pow(2, seqBits); // 计算序列号的最大值
-        this.packetsBuffered = new Packet[seqSize];
-        this.packetsReceived = new boolean[seqSize];
     }
 
     @Override
@@ -44,25 +38,31 @@ public class SRReceiver implements Receiver {
             DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
             socket.receive(receivePacket); // 接收来自发送方的数据包
             Packet packet = Packet.fromBytes(receivePacket.getData()); // 解析数据包
-            int seqNum = packet.getSeqNum();
-            log.info("接收到数据包序列号: {}", seqNum);
 
-            if (packet.isEof()) {
-                eof = true;
-                log.info("接收到EOF包，结束接收数据");
-            }
-            sendAck(seqNum);
+            log.info("接收到数据包序列号: {}", packet.getSeqNum());
 
-            if (isInWindow(seqNum)) {
-                packetsReceived[seqNum] = true;
-                if (seqNum == expectedSeqNum) {
-                    do {
-                        deliverPacket(packet, fileName);
-                        packetsBuffered[expectedSeqNum] = null;
-                        expectedSeqNum = (expectedSeqNum + 1) % seqSize;
-                        packet = packetsBuffered[expectedSeqNum];
-                    } while (packet != null);
+            // 检查是否是期望的序列号
+            if (packet.getSeqNum() == expectedSeqNum) {
+                // 如果是期望的包，将数据写入文件
+                IOUtils.appendBytesToFile(fileName, packet.getData());
+
+                // 发送ACK，确认该包
+                if (Math.random() > packetLossRate) {
+                    sendAck(expectedSeqNum);
                 }
+
+                // 更新期望的下一个序列号
+                expectedSeqNum = (expectedSeqNum + 1) % seqSize;
+
+                // 检查是否是EOF包
+                if (packet.isEof()) {
+                    eof = true;
+                    log.info("接收到EOF包，结束接收数据");
+                }
+            } else {
+                // 乱序包，发送之前的ACK
+                log.info("接收到乱序包，期望的序列号: {}，收到的序列号: {}", expectedSeqNum, packet.getSeqNum());
+                sendAck((expectedSeqNum - 1 + seqSize) % seqSize); // 重发之前的ACK
             }
         }
     }
@@ -73,18 +73,5 @@ public class SRReceiver implements Receiver {
         DatagramPacket ackPacket = new DatagramPacket(ackBytes, ackBytes.length, serverAddress, serverPort);
         socket.send(ackPacket); // 发送ACK
         log.info("发送ACK序列号: {}", seqNum);
-    }
-
-    private void deliverPacket(Packet packet, String fileName) throws IOException {
-        IOUtils.appendBytesToFile(fileName, packet.getData());
-    }
-
-    private boolean isInWindow(int seqNum) {
-        int last = (expectedSeqNum + windowSize - 1) % seqSize;
-        if (expectedSeqNum <= last) {
-            return seqNum >= expectedSeqNum && seqNum <= last;
-        } else {
-            return seqNum >= expectedSeqNum || seqNum <= last;
-        }
     }
 }

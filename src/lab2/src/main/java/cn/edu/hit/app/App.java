@@ -13,6 +13,7 @@ import java.util.Scanner;
 import cn.edu.hit.config.AppConfig;
 import cn.edu.hit.config.CommonConfig;
 import cn.edu.hit.config.GBNConfig;
+import cn.edu.hit.config.SRConfig;
 import cn.edu.hit.core.Receiver;
 import cn.edu.hit.core.Sender;
 import lombok.extern.slf4j.Slf4j;
@@ -66,7 +67,7 @@ public class App {
         }
     }
 
-    public void start() throws Exception {
+    public void start() throws IOException {
         boolean isExit = false;
         while (!isExit) {
             System.out.println();
@@ -76,7 +77,6 @@ public class App {
             System.out.println("3. 退出应用");
             System.out.println("---------------------------------");
             System.out.print("请输入数字，选择模式: ");
-            // Scanner in = new Scanner(System.in);
             int choice = in.nextInt();
             in.nextLine(); // 消耗换行符
             switch (choice) {
@@ -89,7 +89,7 @@ public class App {
         in.close();
     }
 
-    private void downloadMode() throws Exception {
+    private void downloadMode() throws IOException {
         boolean isExit = false;
         while (!isExit) {
             clientSocket = new DatagramSocket(); // 创建接收方UDP套接字
@@ -98,6 +98,7 @@ public class App {
             System.out.println("---------------------------------");
             System.out.println(AppConfig.TIME_PROMPT + ": " + AppConfig.TIME_PROMPT_HELP);
             System.out.println(AppConfig.GBN_PROMPT + ": " + AppConfig.GBN_PROMPT_HELP);
+            System.out.println(AppConfig.SR_PROMPT + ": " + AppConfig.SR_PROMPT_HELP);
             System.out.println(AppConfig.QUIT_PROMPT + ": " + AppConfig.QUIT_PROMPT_HELP);
             System.out.println("---------------------------------");
             System.out.print("请输入命令: ");
@@ -126,7 +127,11 @@ public class App {
                         }
                         sendString(prompt, clientSocket, serverAddress, dstPort);
                         if (prompt.startsWith(AppConfig.GBN_PROMPT_PREFIX)) {
-                            receiver = new Receiver(clientSocket, serverAddress, dstPort, GBNConfig.SEQ_BITS,
+                            receiver = Receiver.createGBNReceiver(clientSocket, serverAddress, dstPort,
+                                GBNConfig.SEQ_BITS, CommonConfig.RECEIVER_PACKET_LOSS_RATE);
+                        } else {
+                            receiver = Receiver.createSRReceiver(clientSocket, serverAddress, dstPort,
+                                SRConfig.RECEIVER_WINDOW_SIZE, GBNConfig.SEQ_BITS,
                                 CommonConfig.RECEIVER_PACKET_LOSS_RATE);
                         }
                         String fileName = args[1];
@@ -137,7 +142,7 @@ public class App {
         }
     }
 
-    private void uploadMode() throws Exception {
+    private void uploadMode() throws IOException {
         serverSocket = new DatagramSocket(srcPort);
         System.out.println();
         System.out.println("进入服务器上传模式，等待客户端发送命令...");
@@ -170,8 +175,14 @@ public class App {
                         }
                         if (prompt.startsWith(AppConfig.GBN_PROMPT_PREFIX)) {
                             System.out.println("客户端请求测试GBN协议...");
-                            sender = new Sender(serverSocket, clientAddress, clientPort, GBNConfig.WINDOW_SIZE,
-                                GBNConfig.SEQ_BITS, CommonConfig.SENDER_PACKET_LOSS_RATE, CommonConfig.TIMEOUT);
+                            sender =
+                                Sender.createGBNSender(serverSocket, clientAddress, clientPort, GBNConfig.WINDOW_SIZE,
+                                    GBNConfig.SEQ_BITS, CommonConfig.SENDER_PACKET_LOSS_RATE, CommonConfig.TIMEOUT);
+                        } else {
+                            System.out.println("客户端请求测试SR协议...");
+                            sender = Sender.createSRSender(serverSocket, clientAddress, clientPort,
+                                SRConfig.SENDER_WINDOW_SIZE, SRConfig.SEQ_BITS, CommonConfig.SENDER_PACKET_LOSS_RATE,
+                                CommonConfig.TIMEOUT);
                         }
                         String fileName = args[1];
                         System.out.println("客户端请求下载文件: " + fileName);
@@ -189,14 +200,14 @@ public class App {
         }
     }
 
-    private void sendFile(String fileName) throws Exception {
+    private void sendFile(String fileName) throws IOException {
         log.info("开始发送文件...");
         fileName = getFilePath("upload", fileName);
         sender.sendFile(fileName);
         log.info("文件发送完毕！");
     }
 
-    private void receiveFile(String fileName) throws Exception {
+    private void receiveFile(String fileName) throws IOException {
         log.info("客户端开始接收文件...");
         fileName = getFilePath("download", fileName);
         receiver.receiveData(fileName);

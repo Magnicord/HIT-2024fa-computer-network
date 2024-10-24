@@ -10,37 +10,32 @@ import cn.edu.hit.utils.Timer;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class SRSender implements Sender {
+public class GBNSender implements Sender {
 
     private final DatagramSocket socket; // 发送端的UDP套接字
     private final InetAddress clientAddress; // 客户端地址
     private final int clientPort; // 客户端端口号
-    private final int windowSize; // 发送窗口大小
-    private final int seqSize; // 序列号范围
-    private final double packetLossRate; // 丢包率
+    private final int windowSize; // 滑动窗口大小
     private final ConcurrentHashMap<Integer, Packet> sentPackets; // 已发送但未确认的数据包
-    private final Timer[] timers; // 计时器数组
-    private final boolean[] ackReceived; // 存储ACK接收状态
-    private int nextSeqNum; // 下一个待发送的序列号
-    private int base; // 窗口的基序列号
+    private final Timer timer; // 超时重传的计时器
+    private final int seqSize; // 序列号的最大值
+    private final double packetLossRate; // 丢包率
+    private int base; // 滑动窗口的基序列号
+    private int nextSeqNum; // 下一个要发送的序列号
 
-    public SRSender(DatagramSocket socket, InetAddress clientAddress, int clientPort, int windowSize, int seqBits,
+    public GBNSender(DatagramSocket socket, InetAddress clientAddress, int clientPort, int windowSize, int seqBits,
         double packetLossRate, long timeout) throws SocketException {
         this.socket = socket;
+        this.packetLossRate = packetLossRate;
         this.socket.setSoTimeout(100); // 设置接收ACK的超时时间
         this.clientAddress = clientAddress;
         this.clientPort = clientPort;
         this.windowSize = windowSize;
-        this.seqSize = (int)Math.pow(2, seqBits);
-        this.packetLossRate = packetLossRate;
-        this.sentPackets = new ConcurrentHashMap<>(seqSize);
-        this.ackReceived = new boolean[seqSize];
-        this.nextSeqNum = 0;
-        this.base = 0;
-        this.timers = new Timer[seqSize];
-        for (int i = 0; i < seqSize; i++) {
-            timers[i] = new Timer(timeout);
-        }
+        this.base = 0; // 初始base值为0
+        this.nextSeqNum = 0; // 初始下一个要发送的序列号为0
+        this.seqSize = (int)Math.pow(2, seqBits); // 计算序列号的最大值
+        this.sentPackets = new ConcurrentHashMap<>(seqSize); // 使用并发哈希表来存储已发送未确认的数据包
+        this.timer = new Timer(timeout); // 初始化定时器
     }
 
     @Override
@@ -74,18 +69,19 @@ public class SRSender implements Sender {
                 // 保存发送的包
                 sentPackets.put(nextSeqNum % seqSize, packet);
 
+                // 如果要发送第一个未被确认的数据包，启动定时器
                 if (base == nextSeqNum) {
-                    for (int i = base; i < base + windowSize && i < totalPackets; i++) {
-                        ackReceived[i % seqSize] = false;
-                    }
+                    startTimer();
                 }
 
-                // 启动计时器
-                startTimer(nextSeqNum);
-                nextSeqNum++;
+                nextSeqNum++; // 递增下一个要发送的序列号
             }
+
+            // 处理ACK
+            log.info("等待接收ACK...");
             receiveAck();
         }
+        socket.setSoTimeout(0);
     }
 
     private void sendPacket(Packet packet) throws IOException {
@@ -95,68 +91,59 @@ public class SRSender implements Sender {
         log.info("发送数据包的序列号: {}", packet.getSeqNum());
     }
 
-    // 处理ACK的接收
     private void receiveAck() {
         boolean received = false; // 是否收到 ACK
         while (!received) {
             try {
-                byte[] ackBytes = new byte[CommonConfig.ACK_SIZE]; // 创建ACK字节数组
-                DatagramPacket ackPacket = new DatagramPacket(ackBytes, ackBytes.length); // 创建ACK数据包
+                byte[] ackBuffer = new byte[CommonConfig.ACK_SIZE]; // 1字节的ACK缓冲区
+                DatagramPacket ackPacket = new DatagramPacket(ackBuffer, ackBuffer.length);
                 socket.receive(ackPacket); // 接收ACK数据包
-                Packet ack = Packet.fromBytes(ackBytes); // 将字节数组转换为Packet对象
-                int ackNum = ack.getSeqNum(); // 获取ACK的序列号
+                ACK ack = ACK.fromBytes(ackPacket.getData()); // 使用ACK类解析ACK数据包
+                int ackNum = ack.seqNum(); // 获取ACK的序列号
+
                 log.info("接收到ACK: {}", ackNum);
-                received = handleAck(ackNum); // 处理ACK
-            } catch (SocketTimeoutException ignored) {
+                // 计算 base 滑动窗口大小
+                int slideSize = windowSlide(ackNum);
+                if (slideSize > 0) { // 如果 base 滑动，即收到非重复的 ACK
+                    received = true;
+                    base += slideSize; // base 滑动
+                    if (base == nextSeqNum) { // 如果窗口内没有未确认的数据包
+                        log.info("当前窗口的数据包均已发送并确认，停止定时器");
+                        timer.stop(); // 停止定时器
+                    } else { // 否则重启定时器
+                        startTimer();
+                    }
+                } else {
+                    log.info("收到重复的ACK: {}，继续接收ACK", ackNum);
+                }
+            } catch (SocketTimeoutException ignored) { // 相当于将阻塞式的 receive 方法转换为非阻塞式，以便仅由 Timer 处理超时
             } catch (IOException e) {
-                log.error("接收ACK失败: {}", e.getMessage());
+                throw new RuntimeException(e);
             }
         }
     }
 
-    private boolean handleAck(int ackNum) {
-        // if (ackReceived[ackNum]) {
-        // return false;
-        // }
-        ackReceived[ackNum] = true;
-        if (ackNum == base % seqSize) {
-            // int slideSize = 1;
-            // while (base + slideSize < nextSeqNum && ackReceived[(base + slideSize) % seqSize]) {
-            // slideSize++;
-            // }
-            // base += slideSize;
-
-            do {
-                timers[base % seqSize].stop();
-                base++;
-            } while (base < nextSeqNum && ackReceived[base % seqSize]);
-            // if (base == nextSeqNum) {
-            // log.info("当前窗口的数据包均已发送并确认，停止定时器");
-            // timer.stop();
-            // } else {
-            // startTimer();
-            // }
-            return true;
+    private void handleTimeout() throws IOException {
+        // 重传窗口内的所有包
+        log.info("超时重传窗口内的所有数据包");
+        for (int i = base; i < nextSeqNum; i++) {
+            sendPacket(sentPackets.get(i % seqSize));
         }
-        return false;
+        startTimer(); // 重启定时器
     }
 
-    private void handleTimeout(int seqNum) throws Exception {
-        if (ackReceived[seqNum]) {
-            return;
-        }
-        log.info("超时重传窗口内序列号为{}的数据包", seqNum);
-        sendPacket(sentPackets.get(seqNum));
-        startTimer(seqNum); // 重启定时器
-    }
-
-    private void startTimer(int seqNum) {
-        timers[seqNum].start(() -> {
+    private void startTimer() {
+        timer.start(() -> {
             try {
-                handleTimeout(seqNum);
+                handleTimeout();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    private int windowSlide(int ackNum) {
+        int base = this.base % seqSize;
+        return (ackNum - base + 1 + seqSize) % seqSize;
     }
 }
