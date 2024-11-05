@@ -1,0 +1,7 @@
+Language: Cpp
+BasedOnStyle: Google
+IndentWidth: 4
+UseTab: Never
+
+# 每行字符的限制，0表示没有限制
+ColumnLimit: 100
