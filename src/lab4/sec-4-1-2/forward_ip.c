@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <time.h>  // 添加时间库头文件
 #include <unistd.h>
 
 #define SRC_PORT 12345
@@ -13,8 +14,10 @@ int main() {
     int sockfd;  // 套接字文件描述符
     struct sockaddr_in src_addr, dest_addr,
         my_addr;  // 定义三个 sockaddr_in 结构体变量，分别表示源地址、目标地址和本地地址
-    char buffer[1024];   // 数据缓冲区，大小为 1024 字节
-    socklen_t addr_len;  // 地址长度
+    char buffer[1024];              // 数据缓冲区，大小为 1024 字节
+    socklen_t addr_len;             // 地址长度
+    char src_ip[INET_ADDRSTRLEN];   // 源 IP 字符串
+    char dest_ip[INET_ADDRSTRLEN];  // 目的 IP 字符串
 
     // 创建 UDP 套接字
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
@@ -40,15 +43,30 @@ int main() {
 
     while (1) {
         // 接收数据报
-        addr_len = sizeof(src_addr);  // 初始化源地址长度
-        memset(buffer, 0, sizeof(buffer));
+        addr_len = sizeof(src_addr);        // 初始化源地址长度
+        memset(buffer, 0, sizeof(buffer));  // 清空缓冲区
         if (recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&src_addr, &addr_len) <
             0) {
             perror("recvfrom");  // 如果接收数据失败，输出错误信息
             return 1;            // 返回 1 表示程序异常终止
         }
 
-        printf("接收到数据报：%s\n", buffer);
+        // 获取当前时间
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        char time_str[64];
+        strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", t);
+
+        // 获取源 IP 地址
+        inet_ntop(AF_INET, &src_addr.sin_addr, src_ip, sizeof(src_ip));
+        // 获取目的 IP 地址
+        inet_ntop(AF_INET, &dest_addr.sin_addr, dest_ip, sizeof(dest_ip));
+
+        // 打印日志信息
+        printf("[%s] 接收到数据报：\n", time_str);
+        printf("源 IP：%s，源端口：%d\n", src_ip, ntohs(src_addr.sin_port));
+        printf("目的 IP：%s，目的端口：%d\n", dest_ip, DEST_PORT);
+        printf("消息内容：%s\n", buffer);
 
         // 转发数据报
         if (sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr *)&dest_addr,
