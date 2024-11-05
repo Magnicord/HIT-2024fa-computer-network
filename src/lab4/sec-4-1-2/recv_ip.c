@@ -23,8 +23,8 @@ int main() {
     }
 
     // 本地地址配置
-    my_addr.sin_family = AF_INET;          // 地址族为 IPv4
-    my_addr.sin_port = htons(DEST_PORT);   // 将端口号转换为网络字节序
+    my_addr.sin_family = AF_INET;         // 地址族为 IPv4
+    my_addr.sin_port = htons(DEST_PORT);  // 将端口号转换为网络字节序
     my_addr.sin_addr.s_addr = INADDR_ANY;  // 监听所有本地 IP 地址
 
     // 绑定套接字到本地地址
@@ -37,8 +37,8 @@ int main() {
         // 接收数据报
         addr_len = sizeof(src_addr);        // 初始化源地址长度
         memset(buffer, 0, sizeof(buffer));  // 清空缓冲区
-        if (recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&src_addr, &addr_len) <
-            0) {
+        if (recvfrom(sockfd, buffer, sizeof(buffer), 0,
+                     (struct sockaddr *)&src_addr, &addr_len) < 0) {
             perror("recvfrom");  // 如果接收数据失败，输出错误信息
             return 1;            // 返回 1 表示程序异常终止
         }

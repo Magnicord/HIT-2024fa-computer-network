@@ -24,13 +24,15 @@ int main() {
     // 设置目的地址
     memset(&dest_addr, 0, sizeof(dest_addr));  // 将目的地址结构体清零
     dest_addr.sin_family = AF_INET;            // 地址族为 IPv4
-    dest_addr.sin_port = htons(DEST_PORT);     // 将端口号转换为网络字节序
-    inet_pton(AF_INET, DEST_IP,
-              &dest_addr.sin_addr);  // 将目标 IP 地址转换为网络字节序并赋值给目的地址结构体
+    dest_addr.sin_port = htons(DEST_PORT);  // 将端口号转换为网络字节序
+    inet_pton(
+        AF_INET, DEST_IP,
+        &dest_addr.sin_addr);  // 将目标 IP
+                               // 地址转换为网络字节序并赋值给目的地址结构体
 
     // 发送数据包
-    if (sendto(sockfd, MESSAGE, strlen(MESSAGE), 0, (struct sockaddr *)&dest_addr,
-               sizeof(dest_addr)) < 0) {
+    if (sendto(sockfd, MESSAGE, strlen(MESSAGE), 0,
+               (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) {
         perror("Sendto failed");  // 如果发送数据包失败，输出错误信息
         return 1;                 // 返回 1 表示程序异常终止
     }

@@ -11,7 +11,7 @@
 int main() {
     int sockfd;                    // 套接字文件描述符
     struct sockaddr_in dest_addr;  // 定义 sockaddr_in 结构体变量，表示目标地址
-    char message[1024];            // 消息缓冲区
+    char message[1024];  // 消息缓冲区
 
     // 创建 UDP 套接字
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
@@ -34,8 +34,8 @@ int main() {
         }
 
         // 发送数据报
-        if (sendto(sockfd, message, strlen(message), 0, (struct sockaddr *)&dest_addr,
-                   sizeof(dest_addr)) < 0) {
+        if (sendto(sockfd, message, strlen(message), 0,
+                   (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) {
             perror("sendto");  // 如果发送数据失败，输出错误信息
             return 1;          // 返回 1 表示程序异常终止
         }
