@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 #define PORT 12345  // 定义端口号为 12345
@@ -36,16 +37,35 @@ int main() {
         return 1;               // 返回 1 表示程序异常终止
     }
 
-    // 接收数据包
-    int recv_len = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0,
-                            (struct sockaddr *)&client_addr, &addr_len);
-    if (recv_len < 0) {
-        perror("Recvfrom failed");  // 如果接收数据失败，输出错误信息
-        return 1;                   // 返回 1 表示程序异常终止
-    }
+    while (1) {
+        // 接收数据包
+        int recv_len = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0,
+                                (struct sockaddr *)&client_addr, &addr_len);
+        if (recv_len < 0) {
+            perror("Recvfrom failed");  // 如果接收数据失败，输出错误信息
+            return 1;                   // 返回 1 表示程序异常终止
+        }
 
-    buffer[recv_len] = '\0';  // 将接收到的数据转换为字符串形式
-    printf("Received message: %s\n", buffer);  // 打印接收到的数据
+        buffer[recv_len] = '\0';  // 将接收到的数据转换为字符串形式
+
+        // 获取当前时间
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        char time_str[64];
+        strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", t);
+
+        // 获取源 IP 和端口
+        char client_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
+        int client_port = ntohs(client_addr.sin_port);
+
+        // 打印日志信息
+        printf("[%s] 接收到数据报：\n", time_str);
+        printf("源 IP：%s，源端口：%d\n", client_ip,
+               ntohs(client_addr.sin_port));
+        printf("目的端口：%d\n", PORT);
+        printf("消息内容：%s\n", buffer);
+    }
 
     close(sockfd);  // 关闭套接字
     return 0;       // 返回 0 表示程序正常终止

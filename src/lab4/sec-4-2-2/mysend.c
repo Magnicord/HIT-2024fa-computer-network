@@ -17,7 +17,6 @@
 #define UDP_DST_PORT 12345
 
 #define SRC_IP "172.20.10.6"
-#define DST_IP "172.20.10.8"
 
 #define ETHER_TYPE 0x0800
 #define DEST_MAC0 0x00
@@ -42,8 +41,9 @@ unsigned short checksum(void *b, int len) {
     unsigned short result;  // 存储校验和结果
 
     // 每次处理两个字节，累加到校验和
-    for (sum = 0; len > 1; len -= 2) {
+    while (len > 1) {
         sum += *buf++;
+        len -= 2;
     }
 
     // 如果有剩余一个字节，累加到校验和
@@ -51,18 +51,14 @@ unsigned short checksum(void *b, int len) {
         sum += *(unsigned char *)buf;
     }
 
-    // 将高 16 位和低 16 位相加
+    // 将高 16 位和低 16 位相加，直到高位为 0
     sum = (sum >> 16) + (sum & 0xFFFF);
-    // 如果还有进位，再加一次
     sum += (sum >> 16);
-    // 取反得到校验和
-    result = ~sum;
 
-    // 返回校验和
-    return result;
+    result = ~sum;  // 取反得到校验和
+    return result;  // 返回校验和
 }
 
-// 主函数
 int main() {
     int sockfd;  // 套接字文件描述符
     struct ifreq if_idx,
@@ -70,7 +66,6 @@ int main() {
     struct sockaddr_ll
         socket_address;  // 定义 sockaddr_ll 结构体变量，表示 socket 地址
     char buffer[BUFFER_SIZE];  // 数据缓冲区，大小为 1518 字节
-    char msg[] = "Hello, this is a test message.111111111";  // 要发送的消息
 
     // 创建原始套接字
     if ((sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
@@ -94,22 +89,22 @@ int main() {
         return 1;                 // 返回 1 表示程序异常终止
     }
 
+    // 让用户输入目标 IP 地址
+    char dst_ip[INET_ADDRSTRLEN];
+    printf("请输入目标 IP 地址（如 172.20.10.8）：");
+    scanf("%s", dst_ip);
+
+    // 让用户输入消息内容
+    char msg[1024];
+    printf("请输入要发送的消息：");
+    scanf("%s", msg);
+
     // 构造以太网头部
     struct ether_header *eh = (struct ether_header *)buffer;
-    eh->ether_shost[0] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[0];
-    eh->ether_shost[1] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[1];
-    eh->ether_shost[2] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[2];
-    eh->ether_shost[3] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[3];
-    eh->ether_shost[4] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[4];
-    eh->ether_shost[5] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[5];
+    memcpy(eh->ether_shost, if_mac.ifr_hwaddr.sa_data,
+           ETH_ALEN);  // 源 MAC 地址
 
-    // 打印源 MAC 地址
-    for (int i = 0; i < 6; i++) {
-        printf("%02x ", eh->ether_shost[i]);
-    }
-    printf("\n");
-
-    // 设置目标 MAC 地址
+    // 设置目的 MAC 地址为路由器的 MAC 地址
     eh->ether_dhost[0] = DEST_MAC0;
     eh->ether_dhost[1] = DEST_MAC1;
     eh->ether_dhost[2] = DEST_MAC2;
@@ -131,7 +126,7 @@ int main() {
     iph->protocol = IPPROTO_UDP;        // 协议类型为 UDP
     iph->check = 0;                     // 校验和初始化为 0
     iph->saddr = inet_addr(SRC_IP);     // 源 IP 地址
-    iph->daddr = inet_addr(DST_IP);     // 目标 IP 地址
+    iph->daddr = inet_addr(dst_ip);     // 目标 IP 地址
     iph->check = checksum((unsigned short *)iph,
                           sizeof(struct iphdr));  // 计算 IP 头部校验和
 
@@ -145,31 +140,48 @@ int main() {
     udph->check = 0;  // UDP 校验和可选，初始化为 0
 
     // 填充数据
-    char *data = (char *)(buffer + sizeof(struct ether_header) +
-                          sizeof(struct iphdr) + sizeof(struct udphdr));
+    char *data = buffer + sizeof(struct ether_header) + sizeof(struct iphdr) +
+                 sizeof(struct udphdr);
     strcpy(data, msg);  // 将消息复制到数据部分
 
     // 设置 socket 地址结构
     socket_address.sll_ifindex = if_idx.ifr_ifindex;  // 接口索引
     socket_address.sll_halen = ETH_ALEN;              // 地址长度
-    socket_address.sll_addr[0] = DEST_MAC0;
-    socket_address.sll_addr[1] = DEST_MAC1;
-    socket_address.sll_addr[2] = DEST_MAC2;
-    socket_address.sll_addr[3] = DEST_MAC3;
-    socket_address.sll_addr[4] = DEST_MAC4;
-    socket_address.sll_addr[5] = DEST_MAC5;
+    memcpy(socket_address.sll_addr, eh->ether_dhost,
+           ETH_ALEN);  // 目标 MAC 地址
+
+    // 计算数据包的总长度
+    int len = sizeof(struct ether_header) + sizeof(struct iphdr) +
+              sizeof(struct udphdr) + strlen(msg);
+
+    // 获取源 MAC 地址和目的 MAC 地址的字符串形式
+    char src_mac[18], dest_mac[18];
+    snprintf(src_mac, sizeof(src_mac), "%02x:%02x:%02x:%02x:%02x:%02x",
+             eh->ether_shost[0], eh->ether_shost[1], eh->ether_shost[2],
+             eh->ether_shost[3], eh->ether_shost[4], eh->ether_shost[5]);
+
+    snprintf(dest_mac, sizeof(dest_mac), "%02x:%02x:%02x:%02x:%02x:%02x",
+             eh->ether_dhost[0], eh->ether_dhost[1], eh->ether_dhost[2],
+             eh->ether_dhost[3], eh->ether_dhost[4], eh->ether_dhost[5]);
+
+    // 打印发送的数据包信息
+    printf("即将发送数据包：\n");
+    printf("源 MAC 地址：%s\n", src_mac);
+    printf("目的 MAC 地址：%s\n", dest_mac);
+    printf("源 IP 地址：%s\n", SRC_IP);
+    printf("目的 IP 地址：%s\n", dst_ip);
+    printf("源端口：%d\n", UDP_SRC_PORT);
+    printf("目的端口：%d\n", UDP_DST_PORT);
+    printf("发送的消息内容：%s\n", msg);
 
     // 发送数据包
-    int len = sizeof(struct ether_header) + sizeof(struct iphdr) +
-              sizeof(struct udphdr) + strlen(msg);  // 计算数据包的总长度
-    printf("len=%d\n", len);  // 打印数据包的总长度
-
-    // 使用 sendto 函数发送数据包
     if (sendto(sockfd, buffer, len, 0, (struct sockaddr *)&socket_address,
                sizeof(struct sockaddr_ll)) < 0) {
         perror("sendto");  // 如果发送数据包失败，输出错误信息
         return 1;          // 返回 1 表示程序异常终止
     }
+
+    printf("数据包已发送到 %s\n", dst_ip);  // 打印发送成功的信息
 
     close(sockfd);  // 关闭套接字
     return 0;       // 返回 0 表示程序正常终止
