@@ -14,6 +14,11 @@
 #include <unistd.h>
 
 #define BUFFER_SIZE 65536  // 定义缓冲区大小为 65536 字节
+#define NODE_3_IP "192.168.2.2"
+#define ENS37_GATEWAY "192.168.2.1"
+#define ENS37_NETMASK "255.255.255.0"
+
+const unsigned char NODE_3_MAC_ADDR[] = {0x00, 0x0c, 0x29, 0x47, 0x72, 0x60};
 
 // 定义路由表项结构体
 struct route_entry {
@@ -102,10 +107,10 @@ struct route_entry *lookup_route(uint32_t dest_ip) {
  * 初始化路由表
  */
 void initialize_route_table() {
-    route_table[0].dest = inet_addr("192.168.80.2");       // 设置目的地址
-    route_table[0].gateway = inet_addr("192.168.80.130");  // 设置网关地址
-    route_table[0].netmask = inet_addr("255.255.255.0");   // 设置子网掩码
-    strcpy(route_table[0].interface, "ens37");             // 设置接口名称
+    route_table[0].dest = inet_addr(NODE_3_IP);         // 设置目的地址
+    route_table[0].gateway = inet_addr(ENS37_GATEWAY);  // 设置网关地址
+    route_table[0].netmask = inet_addr(ENS37_NETMASK);  // 设置子网掩码
+    strcpy(route_table[0].interface, "ens37");          // 设置接口名称
 }
 
 // 主函数
@@ -181,13 +186,13 @@ int main() {
             perror("ioctl");
             return 1;
         }
-        // 设置目标 MAC
-        // 地址（假设目标地址已知，此处做了简化处理，实际上，如果查找路由表后，存在“下一跳”，应该利用
-        // ARP 协议获得 route->gateway 的 MAC
-        // 地址，如果是“直接交付”的话，也应使用 ARP 协议获得目的主机的 MAC
-        // 地址。）
-        unsigned char target_mac[ETH_ALEN] = {
-            0x00, 0x0c, 0x29, 0x5c, 0x8d, 0xee};  // 替换为实际的目标 MAC 地址
+        // 设置目标 MAC 地址
+        // 假设目标地址已知，此处做了简化处理
+        // 实际上，如果查找路由表后，存在“下一跳”
+        // 应该利用 ARP 协议获得 route->gateway 的 MAC地址
+        // 如果是“直接交付”的话，也应使用 ARP 协议获得目的主机的 MAC 地址
+        unsigned char target_mac[ETH_ALEN];  // 替换为实际的目标 MAC 地址
+        memcpy(target_mac, NODE_3_MAC_ADDR, sizeof(NODE_3_MAC_ADDR));
         memset(&dest, 0, sizeof(dest));
         dest.sll_ifindex = ifr.ifr_ifindex;
         dest.sll_halen = ETH_ALEN;

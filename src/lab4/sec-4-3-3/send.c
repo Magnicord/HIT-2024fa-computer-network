@@ -5,8 +5,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define DEST_IP "192.168.80.2"                    // 目标 IP 地址
-#define DEST_PORT 12345                           // 目标端口号
+#define DEST_PORT 12345  // 目标端口号
+
+#define DEST_IP "192.168.2.2"                     // 目标 IP 地址
 #define MESSAGE "Hello, this is a test message."  // 要发送的消息
 
 // 主函数
